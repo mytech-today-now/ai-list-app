@@ -1,0 +1,238 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Running pre-push quality gates..."
+
+# Get the remote and URL being pushed to
+remote="$1"
+url="$2"
+
+echo "📡 Pushing to: $remote ($url)"
+
+# Get list of commits being pushed
+range="$3"
+if [ -z "$range" ]; then
+  # If no range provided, check last 10 commits
+  range="HEAD~10..HEAD"
+fi
+
+# Check if we're pushing to main or develop
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+echo "🌿 Current branch: $current_branch"
+
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "develop" ]; then
+  echo "⚠️  Pushing to protected branch: $current_branch"
+  
+  # Run comprehensive tests before pushing to main/develop
+  echo "🧪 Running comprehensive test suite..."
+  
+  # Type checking
+  echo "🔍 Type checking..."
+  if ! npm run type-check; then
+    echo "❌ Type checking failed"
+    echo "💡 Fix TypeScript errors before pushing to $current_branch"
+    exit 1
+  fi
+  
+  # Linting
+  echo "📝 Linting..."
+  if ! npm run lint; then
+    echo "❌ Linting failed"
+    echo "💡 Fix linting errors before pushing to $current_branch"
+    exit 1
+  fi
+  
+  # Unit tests
+  echo "🧪 Running unit tests..."
+  if ! npm run test; then
+    echo "❌ Unit tests failed"
+    echo "💡 Fix failing tests before pushing to $current_branch"
+    exit 1
+  fi
+  
+  # Build check
+  echo "🏗️  Build check..."
+  if ! npm run build; then
+    echo "❌ Build failed"
+    echo "💡 Fix build errors before pushing to $current_branch"
+    exit 1
+  fi
+  
+  # Coverage check (for main branch)
+  if [ "$current_branch" = "main" ]; then
+    echo "📊 Checking coverage thresholds..."
+    if ! npm run test:coverage:check; then
+      echo "❌ Coverage thresholds not met"
+      echo "💡 Improve test coverage before pushing to main"
+      exit 1
+    fi
+  fi
+fi
+
+# Check for large files in the push
+echo "📏 Checking for large files..."
+large_files=$(git diff --name-only "$range" | xargs -I {} find . -name {} -size +1M 2>/dev/null || true)
+if [ -n "$large_files" ]; then
+  echo "❌ Large files detected in push:"
+  echo "$large_files"
+  echo "💡 Consider using Git LFS for large files"
+  exit 1
+fi
+
+# Check for sensitive files
+echo "🔒 Checking for sensitive files..."
+sensitive_patterns=(
+  "\.env$"
+  "\.env\.local$"
+  "\.env\.production$"
+  "\.env\.staging$"
+  "\.pem$"
+  "\.key$"
+  "\.p12$"
+  "\.pfx$"
+  "id_rsa"
+  "id_dsa"
+  "\.ssh/"
+  "\.aws/"
+  "\.docker/config\.json$"
+  "\.npmrc$"
+  "\.pypirc$"
+)
+
+for pattern in "${sensitive_patterns[@]}"; do
+  sensitive_files=$(git diff --name-only "$range" | grep -E "$pattern" || true)
+  if [ -n "$sensitive_files" ]; then
+    echo "❌ Sensitive files detected in push:"
+    echo "$sensitive_files"
+    echo "💡 Remove sensitive files and add them to .gitignore"
+    exit 1
+  fi
+done
+
+# Check commit messages in the push
+echo "📝 Validating commit messages in push..."
+invalid_commits=0
+git rev-list "$range" | while read commit; do
+  msg=$(git log --format=%B -n 1 "$commit")
+  subject=$(echo "$msg" | head -n 1)
+  
+  # Skip merge commits
+  if echo "$subject" | grep -q "^Merge "; then
+    continue
+  fi
+  
+  # Check conventional commit format
+  if ! echo "$subject" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+"; then
+    echo "❌ Invalid commit message format: $subject"
+    echo "   Commit: $(git log --format=%h -n 1 "$commit")"
+    invalid_commits=$((invalid_commits + 1))
+  fi
+done
+
+if [ $invalid_commits -gt 0 ]; then
+  echo "❌ Found $invalid_commits commits with invalid messages"
+  echo "💡 Use 'git rebase -i' to fix commit messages"
+  exit 1
+fi
+
+# Check for TODO/FIXME in production code (stricter for main)
+if [ "$current_branch" = "main" ]; then
+  echo "📝 Checking for TODO/FIXME comments..."
+  todo_files=$(git diff --name-only "$range" | xargs grep -l "TODO\|FIXME\|XXX\|HACK" 2>/dev/null | grep -v "__tests__\|\.test\.\|\.spec\." || true)
+  if [ -n "$todo_files" ]; then
+    todo_count=$(echo "$todo_files" | wc -l)
+    if [ $todo_count -gt 3 ]; then
+      echo "❌ Too many TODO/FIXME comments in production code ($todo_count files)"
+      echo "💡 Address TODO/FIXME comments before pushing to main"
+      exit 1
+    else
+      echo "⚠️  Found TODO/FIXME comments in $todo_count files"
+    fi
+  fi
+fi
+
+# Check for console.log in production code (stricter for main)
+if [ "$current_branch" = "main" ]; then
+  echo "🖥️  Checking for console statements..."
+  console_files=$(git diff --name-only "$range" | xargs grep -l "console\." 2>/dev/null | grep -v "__tests__\|\.test\.\|\.spec\.\|\.stories\." || true)
+  if [ -n "$console_files" ]; then
+    echo "❌ Console statements found in production code:"
+    echo "$console_files"
+    echo "💡 Remove console statements before pushing to main"
+    exit 1
+  fi
+fi
+
+# Check for package.json changes without lock file updates
+echo "📦 Checking package manager consistency..."
+package_changed=$(git diff --name-only "$range" | grep "package\.json$" || true)
+if [ -n "$package_changed" ]; then
+  lock_changed=$(git diff --name-only "$range" | grep -E "(package-lock\.json|yarn\.lock)$" || true)
+  if [ -z "$lock_changed" ]; then
+    echo "❌ package.json changed but lock file not updated"
+    echo "💡 Run npm install or yarn install to update lock file"
+    exit 1
+  fi
+fi
+
+# Check for dependency vulnerabilities (for main/develop)
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "develop" ]; then
+  echo "🔒 Checking for dependency vulnerabilities..."
+  if ! npm audit --audit-level=high; then
+    echo "❌ High severity vulnerabilities found"
+    echo "💡 Run 'npm audit fix' to resolve vulnerabilities"
+    exit 1
+  fi
+fi
+
+# Check branch protection rules
+if [ "$current_branch" = "main" ]; then
+  echo "🛡️  Checking branch protection..."
+  
+  # Check if pushing directly to main (should usually go through PR)
+  if [ "$current_branch" = "main" ] && [ "$(git rev-list --count HEAD ^origin/main 2>/dev/null || echo 0)" -gt 0 ]; then
+    echo "⚠️  Direct push to main branch detected"
+    echo "💡 Consider using pull requests for main branch changes"
+    
+    # In strict mode, this could be an error
+    # Uncomment the next lines to enforce PR-only workflow
+    # echo "❌ Direct pushes to main are not allowed"
+    # echo "💡 Create a pull request instead"
+    # exit 1
+  fi
+fi
+
+# Performance check for large pushes
+commit_count=$(git rev-list --count "$range" 2>/dev/null || echo 0)
+if [ $commit_count -gt 20 ]; then
+  echo "⚠️  Large push detected ($commit_count commits)"
+  echo "💡 Consider breaking large changes into smaller pushes"
+fi
+
+# Check for binary files
+echo "📁 Checking for binary files..."
+binary_files=$(git diff --name-only "$range" | xargs file 2>/dev/null | grep -v "text" | grep -v "empty" | cut -d: -f1 || true)
+if [ -n "$binary_files" ]; then
+  binary_count=$(echo "$binary_files" | wc -l)
+  if [ $binary_count -gt 5 ]; then
+    echo "⚠️  Many binary files in push ($binary_count files)"
+    echo "💡 Consider if all binary files are necessary"
+  fi
+fi
+
+# Final success message
+echo "✅ Pre-push checks completed successfully!"
+echo "🚀 Push approved for $current_branch"
+
+# Show push summary
+echo ""
+echo "📋 Push Summary:"
+echo "   Branch: $current_branch"
+echo "   Commits: $commit_count"
+echo "   Remote: $remote"
+if [ -n "$binary_files" ]; then
+  echo "   Binary files: $(echo "$binary_files" | wc -l)"
+fi
+
+echo ""
+echo "🎉 Ready to push!"

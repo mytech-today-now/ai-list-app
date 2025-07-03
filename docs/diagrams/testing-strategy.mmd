@@ -1,0 +1,99 @@
+graph TD
+    %% Testing Strategy Diagram
+    
+    subgraph "Unit Testing"
+        UT1[Component Tests<br/>@testing-library/react]
+        UT2[Service Tests<br/>Jest]
+        UT3[Utility Tests<br/>Jest]
+        UT4[Hook Tests<br/>@testing-library/react-hooks]
+    end
+    
+    subgraph "Integration Testing"
+        IT1[API Integration<br/>Supertest]
+        IT2[Database Integration<br/>Test DB]
+        IT3[MCP Command Testing<br/>Custom Framework]
+        IT4[Service Integration<br/>Jest]
+    end
+    
+    subgraph "End-to-End Testing"
+        E2E1[User Workflows<br/>Playwright]
+        E2E2[Cross-Browser<br/>Playwright]
+        E2E3[Mobile Testing<br/>Playwright]
+        E2E4[PWA Features<br/>Playwright]
+    end
+    
+    subgraph "Visual Testing"
+        VT1[Component Screenshots<br/>jest-image-snapshot]
+        VT2[Page Screenshots<br/>Playwright]
+        VT3[Cross-Browser Visual<br/>Percy/Chromatic]
+        VT4[Responsive Testing<br/>Multiple Viewports]
+    end
+    
+    subgraph "Performance Testing"
+        PT1[Load Testing<br/>k6]
+        PT2[Bundle Analysis<br/>Webpack Bundle Analyzer]
+        PT3[Lighthouse Audits<br/>CI Integration]
+        PT4[Memory Profiling<br/>Chrome DevTools]
+    end
+    
+    subgraph "Security Testing"
+        ST1[Dependency Scanning<br/>npm audit]
+        ST2[SAST Analysis<br/>ESLint Security]
+        ST3[API Security<br/>OWASP Testing]
+        ST4[Authentication Tests<br/>JWT Validation]
+    end
+    
+    subgraph "Quality Gates"
+        QG1[Coverage Thresholds<br/>85% Minimum]
+        QG2[Performance Budgets<br/>Lighthouse Scores]
+        QG3[Security Scans<br/>Zero High Vulnerabilities]
+        QG4[Visual Regression<br/>No Unexpected Changes]
+    end
+    
+    %% Test Flow
+    UT1 --> IT1
+    UT2 --> IT2
+    UT3 --> IT3
+    UT4 --> IT4
+    
+    IT1 --> E2E1
+    IT2 --> E2E2
+    IT3 --> E2E3
+    IT4 --> E2E4
+    
+    E2E1 --> VT1
+    E2E2 --> VT2
+    E2E3 --> VT3
+    E2E4 --> VT4
+    
+    VT1 --> PT1
+    VT2 --> PT2
+    VT3 --> PT3
+    VT4 --> PT4
+    
+    PT1 --> ST1
+    PT2 --> ST2
+    PT3 --> ST3
+    PT4 --> ST4
+    
+    ST1 --> QG1
+    ST2 --> QG2
+    ST3 --> QG3
+    ST4 --> QG4
+    
+    %% Styling
+    classDef unitTest fill:#e3f2fd
+    classDef integrationTest fill:#f1f8e9
+    classDef e2eTest fill:#fff3e0
+    classDef visualTest fill:#fce4ec
+    classDef perfTest fill:#f3e5f5
+    classDef securityTest fill:#ffebee
+    classDef qualityGate fill:#e8f5e8
+    
+    class UT1,UT2,UT3,UT4 unitTest
+    class IT1,IT2,IT3,IT4 integrationTest
+    class E2E1,E2E2,E2E3,E2E4 e2eTest
+    class VT1,VT2,VT3,VT4 visualTest
+    class PT1,PT2,PT3,PT4 perfTest
+    class ST1,ST2,ST3,ST4 securityTest
+    class QG1,QG2,QG3,QG4 qualityGate

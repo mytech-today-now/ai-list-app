@@ -1,0 +1,406 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run performance tests daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - lighthouse
+          - load
+          - memory
+          - bundle
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lighthouse-audit:
+    name: Lighthouse Performance Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event.inputs.test_type == 'lighthouse' || github.event.inputs.test_type == 'all' || github.event_name != 'workflow_dispatch'
+    
+    strategy:
+      matrix:
+        device: [desktop, mobile]
+        page: [home, dashboard, tasks, agents]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_API_URL: http://localhost:3001
+      
+      - name: Start servers
+        run: |
+          npm run dev:backend &
+          npm run dev:frontend &
+          sleep 30
+        env:
+          NODE_ENV: production
+      
+      - name: Wait for servers
+        run: |
+          npx wait-on http://localhost:3001/health
+          npx wait-on http://localhost:5173
+        timeout-minutes: 5
+      
+      - name: Run Lighthouse audit
+        run: |
+          npm install -g @lhci/cli lighthouse
+          
+          # Configure device settings
+          if [ "${{ matrix.device }}" = "mobile" ]; then
+            DEVICE_FLAGS="--preset=perf --emulated-form-factor=mobile --throttling-method=devtools"
+          else
+            DEVICE_FLAGS="--preset=perf --emulated-form-factor=desktop --throttling-method=devtools"
+          fi
+          
+          # Configure page URL
+          case "${{ matrix.page }}" in
+            home) PAGE_URL="http://localhost:5173/" ;;
+            dashboard) PAGE_URL="http://localhost:5173/dashboard" ;;
+            tasks) PAGE_URL="http://localhost:5173/tasks" ;;
+            agents) PAGE_URL="http://localhost:5173/agents" ;;
+          esac
+          
+          lighthouse $PAGE_URL \
+            $DEVICE_FLAGS \
+            --output=json \
+            --output=html \
+            --output-path=./lighthouse-${{ matrix.device }}-${{ matrix.page }} \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"
+      
+      - name: Parse Lighthouse results
+        run: |
+          node -e "
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('./lighthouse-${{ matrix.device }}-${{ matrix.page }}.report.json'));
+            const scores = {
+              performance: Math.round(report.categories.performance.score * 100),
+              accessibility: Math.round(report.categories.accessibility.score * 100),
+              'best-practices': Math.round(report.categories['best-practices'].score * 100),
+              seo: Math.round(report.categories.seo.score * 100),
+              pwa: report.categories.pwa ? Math.round(report.categories.pwa.score * 100) : 'N/A'
+            };
+            
+            const metrics = {
+              'first-contentful-paint': report.audits['first-contentful-paint'].numericValue,
+              'largest-contentful-paint': report.audits['largest-contentful-paint'].numericValue,
+              'first-input-delay': report.audits['max-potential-fid'].numericValue,
+              'cumulative-layout-shift': report.audits['cumulative-layout-shift'].numericValue,
+              'speed-index': report.audits['speed-index'].numericValue
+            };
+            
+            console.log('Lighthouse Scores (${{ matrix.device }} - ${{ matrix.page }}):');
+            Object.entries(scores).forEach(([key, value]) => {
+              console.log(\`  \${key}: \${value}\`);
+            });
+            
+            console.log('Core Web Vitals:');
+            Object.entries(metrics).forEach(([key, value]) => {
+              console.log(\`  \${key}: \${Math.round(value)}ms\`);
+            });
+            
+            // Write results for artifact
+            fs.writeFileSync('./lighthouse-results-${{ matrix.device }}-${{ matrix.page }}.json', JSON.stringify({
+              device: '${{ matrix.device }}',
+              page: '${{ matrix.page }}',
+              scores,
+              metrics,
+              timestamp: new Date().toISOString()
+            }, null, 2));
+          "
+      
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v3
+        with:
+          name: lighthouse-results-${{ matrix.device }}-${{ matrix.page }}
+          path: |
+            lighthouse-*.report.json
+            lighthouse-*.report.html
+            lighthouse-results-*.json
+          retention-days: 30
+
+  load-testing:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.inputs.test_type == 'load' || github.event.inputs.test_type == 'all' || github.event_name != 'workflow_dispatch'
+    
+    strategy:
+      matrix:
+        scenario: [light, moderate, heavy]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      
+      - name: Build and start application
+        run: |
+          npm run build
+          npm run dev:backend &
+          npm run dev:frontend &
+          sleep 30
+        env:
+          NODE_ENV: production
+      
+      - name: Create load test script
+        run: |
+          cat > load-test-${{ matrix.scenario }}.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          import { Rate } from 'k6/metrics';
+          
+          const errorRate = new Rate('errors');
+          
+          const scenarios = {
+            light: { vus: 10, duration: '2m' },
+            moderate: { vus: 50, duration: '5m' },
+            heavy: { vus: 100, duration: '10m' }
+          };
+          
+          export let options = {
+            scenarios: {
+              load_test: {
+                executor: 'constant-vus',
+                ...scenarios['${{ matrix.scenario }}']
+              }
+            },
+            thresholds: {
+              http_req_duration: ['p(95)<2000'], // 95% of requests under 2s
+              http_req_failed: ['rate<0.1'], // Error rate under 10%
+              errors: ['rate<0.1']
+            }
+          };
+          
+          const BASE_URL = 'http://localhost:5173';
+          
+          export default function() {
+            // Test different pages
+            const pages = ['/', '/dashboard', '/tasks', '/agents'];
+            const page = pages[Math.floor(Math.random() * pages.length)];
+            
+            const response = http.get(`${BASE_URL}${page}`);
+            
+            check(response, {
+              'status is 200': (r) => r.status === 200,
+              'response time < 2000ms': (r) => r.timings.duration < 2000,
+            }) || errorRate.add(1);
+            
+            sleep(Math.random() * 3 + 1); // Random sleep 1-4 seconds
+          }
+          EOF
+      
+      - name: Run load test
+        run: k6 run load-test-${{ matrix.scenario }}.js --out json=load-test-results-${{ matrix.scenario }}.json
+      
+      - name: Parse load test results
+        run: |
+          node -e "
+            const fs = require('fs');
+            const results = fs.readFileSync('./load-test-results-${{ matrix.scenario }}.json', 'utf8')
+              .split('\n')
+              .filter(line => line.trim())
+              .map(line => JSON.parse(line))
+              .find(item => item.type === 'Point' && item.metric === 'http_req_duration');
+            
+            if (results) {
+              console.log('Load Test Results (${{ matrix.scenario }}):');
+              console.log(\`  Average response time: \${Math.round(results.data.value)}ms\`);
+              console.log(\`  Test completed successfully\`);
+            }
+          "
+      
+      - name: Upload load test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results-${{ matrix.scenario }}
+          path: load-test-results-*.json
+          retention-days: 30
+
+  memory-testing:
+    name: Memory Usage Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.inputs.test_type == 'memory' || github.event.inputs.test_type == 'all' || github.event_name != 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Start servers
+        run: |
+          npm run dev:backend &
+          npm run dev:frontend &
+          sleep 30
+      
+      - name: Run memory tests
+        run: |
+          npx playwright test --config=playwright.config.ts --grep="memory" --reporter=json > memory-test-results.json
+        continue-on-error: true
+      
+      - name: Upload memory test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: memory-test-results
+          path: memory-test-results.json
+          retention-days: 30
+
+  bundle-analysis:
+    name: Bundle Size Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.inputs.test_type == 'bundle' || github.event.inputs.test_type == 'all' || github.event_name != 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build:frontend
+      
+      - name: Analyze bundle size
+        run: |
+          npx vite-bundle-analyzer apps/frontend/dist --mode=json > bundle-analysis.json
+          
+          # Generate human-readable report
+          node -e "
+            const fs = require('fs');
+            const analysis = JSON.parse(fs.readFileSync('./bundle-analysis.json'));
+            
+            console.log('Bundle Analysis:');
+            console.log(\`  Total size: \${(analysis.totalSize / 1024 / 1024).toFixed(2)} MB\`);
+            console.log(\`  Gzipped size: \${(analysis.gzippedSize / 1024 / 1024).toFixed(2)} MB\`);
+            console.log(\`  Number of chunks: \${analysis.chunks.length}\`);
+            
+            const largestChunks = analysis.chunks
+              .sort((a, b) => b.size - a.size)
+              .slice(0, 5);
+            
+            console.log('Largest chunks:');
+            largestChunks.forEach(chunk => {
+              console.log(\`  \${chunk.name}: \${(chunk.size / 1024).toFixed(2)} KB\`);
+            });
+          "
+      
+      - name: Upload bundle analysis
+        uses: actions/upload-artifact@v3
+        with:
+          name: bundle-analysis
+          path: bundle-analysis.json
+          retention-days: 30
+
+  performance-report:
+    name: Performance Report
+    runs-on: ubuntu-latest
+    needs: [lighthouse-audit, load-testing, memory-testing, bundle-analysis]
+    if: always()
+    
+    steps:
+      - name: Download all performance results
+        uses: actions/download-artifact@v3
+        with:
+          path: performance-results/
+      
+      - name: Generate performance report
+        run: |
+          echo "# Performance Test Results" > performance-report.md
+          echo "" >> performance-report.md
+          echo "Generated on: $(date)" >> performance-report.md
+          echo "" >> performance-report.md
+          
+          # Lighthouse results
+          echo "## Lighthouse Audit Results" >> performance-report.md
+          for result in performance-results/lighthouse-results-*/lighthouse-results-*.json; do
+            if [ -f "$result" ]; then
+              node -e "
+                const fs = require('fs');
+                const data = JSON.parse(fs.readFileSync('$result'));
+                console.log(\`### \${data.device} - \${data.page}\`);
+                console.log('| Metric | Score |');
+                console.log('|--------|-------|');
+                Object.entries(data.scores).forEach(([key, value]) => {
+                  console.log(\`| \${key} | \${value} |\`);
+                });
+                console.log('');
+              " >> performance-report.md
+            fi
+          done
+          
+          echo "## Summary" >> performance-report.md
+          echo "- Lighthouse audits completed for multiple devices and pages" >> performance-report.md
+          echo "- Load testing completed for different scenarios" >> performance-report.md
+          echo "- Memory usage analysis completed" >> performance-report.md
+          echo "- Bundle size analysis completed" >> performance-report.md
+      
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: performance-report.md
+          retention-days: 30

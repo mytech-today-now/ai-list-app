@@ -1,0 +1,104 @@
+{
+  "header": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n",
+  "types": [
+    {
+      "type": "feat",
+      "section": "✨ Features"
+    },
+    {
+      "type": "fix",
+      "section": "🐛 Bug Fixes"
+    },
+    {
+      "type": "docs",
+      "section": "📚 Documentation"
+    },
+    {
+      "type": "style",
+      "section": "💄 Styles"
+    },
+    {
+      "type": "refactor",
+      "section": "♻️ Code Refactoring"
+    },
+    {
+      "type": "perf",
+      "section": "⚡ Performance Improvements"
+    },
+    {
+      "type": "test",
+      "section": "🧪 Tests"
+    },
+    {
+      "type": "build",
+      "section": "🏗️ Build System"
+    },
+    {
+      "type": "ci",
+      "section": "👷 CI/CD"
+    },
+    {
+      "type": "chore",
+      "section": "🔧 Maintenance"
+    },
+    {
+      "type": "security",
+      "section": "🔒 Security"
+    }
+  ],
+  "commitUrlFormat": "https://github.com/your-username/ai-todo-mcp/commit/{{hash}}",
+  "compareUrlFormat": "https://github.com/your-username/ai-todo-mcp/compare/{{previousTag}}...{{currentTag}}",
+  "issueUrlFormat": "https://github.com/your-username/ai-todo-mcp/issues/{{id}}",
+  "userUrlFormat": "https://github.com/{{user}}",
+  "releaseCommitMessageFormat": "chore(release): {{currentTag}}",
+  "issuePrefixes": ["#"],
+  "bumpFiles": [
+    {
+      "filename": "package.json",
+      "type": "json"
+    },
+    {
+      "filename": "apps/frontend/package.json",
+      "type": "json"
+    },
+    {
+      "filename": "apps/backend/package.json",
+      "type": "json"
+    },
+    {
+      "filename": "packages/mcp-core/package.json",
+      "type": "json"
+    },
+    {
+      "filename": "packages/shared-types/package.json",
+      "type": "json"
+    },
+    {
+      "filename": "packages/storage/package.json",
+      "type": "json"
+    }
+  ],
+  "packageFiles": [
+    {
+      "filename": "package.json",
+      "type": "json"
+    }
+  ],
+  "scripts": {
+    "prerelease": "npm run ci",
+    "postrelease": "npm run docs:build && git add docs/ && git commit -m 'docs: update documentation for release' || true"
+  },
+  "skip": {
+    "changelog": false,
+    "commit": false,
+    "tag": false
+  },
+  "dryRun": false,
+  "silent": false,
+  "tagPrefix": "v",
+  "prerelease": false,
+  "commitAll": false,
+  "sign": false,
+  "noVerify": false,
+  "releaseAs": false
+}

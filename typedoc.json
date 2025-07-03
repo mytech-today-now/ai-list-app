@@ -1,0 +1,175 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "AI ToDo MCP - API Documentation",
+  "entryPoints": [
+    "packages/mcp-core/src/index.ts",
+    "packages/shared-types/src/index.ts",
+    "packages/storage/src/index.ts",
+    "apps/frontend/src/main.tsx",
+    "apps/backend/src/index.ts"
+  ],
+  "entryPointStrategy": "packages",
+  "out": "docs/api",
+  "theme": "default",
+  "includeVersion": true,
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": false,
+  "readme": "README.md",
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": [
+    "Core",
+    "Types",
+    "Storage",
+    "Frontend",
+    "Backend",
+    "Utilities",
+    "Other"
+  ],
+  "sort": ["source-order"],
+  "kindSortOrder": [
+    "Document",
+    "Project",
+    "Module",
+    "Namespace",
+    "Enum",
+    "EnumMember",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Constructor",
+    "Property",
+    "Variable",
+    "Function",
+    "Accessor",
+    "Method",
+    "Parameter",
+    "TypeParameter",
+    "TypeLiteral",
+    "CallSignature",
+    "ConstructorSignature",
+    "IndexSignature",
+    "GetSignature",
+    "SetSignature"
+  ],
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "visibilityFilters": {
+    "protected": false,
+    "private": false,
+    "inherited": true,
+    "external": false,
+    "@alpha": false,
+    "@beta": false
+  },
+  "searchInComments": true,
+  "searchInDocuments": true,
+  "cleanOutputDir": true,
+  "titleLink": "https://github.com/your-username/ai-todo-mcp",
+  "navigationLinks": {
+    "GitHub": "https://github.com/your-username/ai-todo-mcp",
+    "Documentation": "https://your-username.github.io/ai-todo-mcp"
+  },
+  "sidebarLinks": {
+    "MCP Specification": "https://your-username.github.io/ai-todo-mcp/docs/MCP_SPECIFICATION.html",
+    "Database Schema": "https://your-username.github.io/ai-todo-mcp/docs/DATABASE_SCHEMA.html"
+  },
+  "hostedBaseUrl": "https://your-username.github.io/ai-todo-mcp/",
+  "useHostedBaseUrlForAbsoluteLinks": true,
+  "plugin": [
+    "typedoc-plugin-mermaid"
+  ],
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "treatWarningsAsErrors": false,
+  "intentionallyNotExported": [
+    "InternalType",
+    "PrivateInterface"
+  ],
+  "requiredToBeDocumented": [
+    "Enum",
+    "EnumMember",
+    "Variable",
+    "Function",
+    "Class",
+    "Interface",
+    "Property",
+    "Method",
+    "Accessor",
+    "TypeAlias"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**"
+  ],
+  "externalPattern": [
+    "**/node_modules/**"
+  ],
+  "excludeTags": [
+    "@internal",
+    "@alpha",
+    "@beta"
+  ],
+  "blockTags": [
+    "@alpha",
+    "@beta",
+    "@defaultValue",
+    "@decorator",
+    "@deprecated",
+    "@eventProperty",
+    "@example",
+    "@experimental",
+    "@inheritDoc",
+    "@internal",
+    "@label",
+    "@override",
+    "@packageDocumentation",
+    "@param",
+    "@privateRemarks",
+    "@public",
+    "@readonly",
+    "@remarks",
+    "@returns",
+    "@sealed",
+    "@see",
+    "@since",
+    "@throws",
+    "@typeParam",
+    "@virtual"
+  ],
+  "inlineTags": [
+    "@inheritDoc",
+    "@label",
+    "@link",
+    "@linkcode",
+    "@linkplain"
+  ],
+  "modifierTags": [
+    "@alpha",
+    "@beta",
+    "@decorator",
+    "@deprecated",
+    "@eventProperty",
+    "@experimental",
+    "@internal",
+    "@override",
+    "@packageDocumentation",
+    "@public",
+    "@readonly",
+    "@sealed",
+    "@virtual"
+  ]
+}

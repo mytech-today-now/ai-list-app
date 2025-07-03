@@ -1,0 +1,50 @@
+{
+  "source": {
+    "include": [
+      "./packages/",
+      "./apps/",
+      "./README.md"
+    ],
+    "includePattern": "\\.(js|jsx|ts|tsx)$",
+    "exclude": [
+      "node_modules/",
+      "dist/",
+      "build/",
+      "coverage/",
+      "**/*.test.js",
+      "**/*.test.ts",
+      "**/*.test.jsx",
+      "**/*.test.tsx",
+      "**/*.spec.js",
+      "**/*.spec.ts",
+      "**/*.spec.jsx",
+      "**/*.spec.tsx",
+      "**/__tests__/**",
+      "**/__mocks__/**"
+    ],
+    "excludePattern": "(node_modules/|dist/|build/|coverage/)"
+  },
+  "opts": {
+    "destination": "./docs/api/jsdoc/",
+    "recurse": true,
+    "readme": "./README.md"
+  },
+  "plugins": [
+    "plugins/markdown",
+    "plugins/summarize"
+  ],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false,
+    "useLongnameInNav": false,
+    "showInheritedInNav": true
+  },
+  "markdown": {
+    "hardwrap": true,
+    "idInHeadings": true
+  },
+  "tags": {
+    "allowUnknownTags": true,
+    "dictionaries": ["jsdoc", "closure"]
+  }
+}

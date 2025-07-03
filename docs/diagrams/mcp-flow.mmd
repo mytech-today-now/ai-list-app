@@ -1,0 +1,51 @@
+sequenceDiagram
+    participant User as User/AI Agent
+    participant Frontend as React Frontend
+    participant MCP as MCP Engine
+    participant Backend as Backend API
+    participant DB as Database
+    participant AI as OpenAI API
+    
+    Note over User, AI: MCP Command Flow
+    
+    User->>Frontend: Input MCP Command
+    Frontend->>MCP: Parse Command
+    
+    alt Valid Command
+        MCP->>MCP: Validate Syntax
+        MCP->>Backend: Execute Command
+        
+        alt Authentication Required
+            Backend->>Backend: Verify JWT Token
+            Backend->>Backend: Check Permissions
+        end
+        
+        alt Database Operation
+            Backend->>DB: Query/Update Data
+            DB-->>Backend: Return Result
+        end
+        
+        alt AI Processing Required
+            Backend->>AI: Send AI Request
+            AI-->>Backend: Return AI Response
+        end
+        
+        Backend-->>MCP: Return Result
+        MCP-->>Frontend: Command Response
+        Frontend-->>User: Display Result
+        
+    else Invalid Command
+        MCP-->>Frontend: Validation Error
+        Frontend-->>User: Error Message
+    end
+    
+    Note over User, AI: Offline Support
+    
+    alt Offline Mode
+        Frontend->>Frontend: Store in IndexedDB
+        Frontend-->>User: Queued for Sync
+        
+        Note over Frontend: When Online
+        Frontend->>Backend: Sync Queued Commands
+        Backend-->>Frontend: Sync Results
+    end

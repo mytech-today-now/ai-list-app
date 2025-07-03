@@ -1,0 +1,199 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Running pre-commit quality gates..."
+
+# Run lint-staged for file-specific checks
+echo "📝 Running lint-staged..."
+npx lint-staged
+
+# Check if there are any staged files
+if git diff --cached --quiet; then
+  echo "ℹ️  No staged files to check"
+  exit 0
+fi
+
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only)
+echo "📁 Staged files: $(echo "$STAGED_FILES" | wc -l) files"
+
+# Check for large files
+echo "📏 Checking for large files..."
+for file in $STAGED_FILES; do
+  if [ -f "$file" ]; then
+    size=$(wc -c < "$file")
+    if [ $size -gt 1048576 ]; then # 1MB
+      echo "❌ Large file detected: $file ($(($size / 1024))KB)"
+      echo "💡 Consider using Git LFS for large files"
+      exit 1
+    fi
+  fi
+done
+
+# Check for sensitive data patterns
+echo "🔒 Checking for sensitive data..."
+SENSITIVE_PATTERNS=(
+  "password\s*=\s*['\"][^'\"]*['\"]"
+  "api[_-]?key\s*=\s*['\"][^'\"]*['\"]"
+  "secret\s*=\s*['\"][^'\"]*['\"]"
+  "token\s*=\s*['\"][^'\"]*['\"]"
+  "private[_-]?key"
+  "-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----"
+  "sk_live_"
+  "pk_live_"
+  "AKIA[0-9A-Z]{16}"
+)
+
+for file in $STAGED_FILES; do
+  if [ -f "$file" ] && [[ "$file" =~ \.(js|ts|jsx|tsx|json|env|yaml|yml)$ ]]; then
+    for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+      if grep -qiE "$pattern" "$file"; then
+        echo "❌ Potential sensitive data found in $file"
+        echo "💡 Please review and remove sensitive information"
+        exit 1
+      fi
+    done
+  fi
+done
+
+# Check for TODO/FIXME comments in production code
+echo "📝 Checking for TODO/FIXME comments..."
+TODO_COUNT=0
+for file in $STAGED_FILES; do
+  if [ -f "$file" ] && [[ "$file" =~ \.(js|ts|jsx|tsx)$ ]] && [[ ! "$file" =~ __tests__|\.test\.|\.spec\. ]]; then
+    todos=$(grep -n -i "TODO\|FIXME\|XXX\|HACK" "$file" || true)
+    if [ -n "$todos" ]; then
+      echo "⚠️  TODO/FIXME found in $file:"
+      echo "$todos"
+      TODO_COUNT=$((TODO_COUNT + 1))
+    fi
+  fi
+done
+
+if [ $TODO_COUNT -gt 5 ]; then
+  echo "❌ Too many TODO/FIXME comments ($TODO_COUNT). Please address some before committing."
+  exit 1
+fi
+
+# Check for console.log statements in production code
+echo "🖥️  Checking for console statements..."
+CONSOLE_COUNT=0
+for file in $STAGED_FILES; do
+  if [ -f "$file" ] && [[ "$file" =~ \.(js|ts|jsx|tsx)$ ]] && [[ ! "$file" =~ __tests__|\.test\.|\.spec\.|\.stories\. ]]; then
+    consoles=$(grep -n "console\." "$file" || true)
+    if [ -n "$consoles" ]; then
+      echo "⚠️  Console statements found in $file:"
+      echo "$consoles"
+      CONSOLE_COUNT=$((CONSOLE_COUNT + 1))
+    fi
+  fi
+done
+
+if [ $CONSOLE_COUNT -gt 0 ]; then
+  echo "⚠️  Found console statements in $CONSOLE_COUNT files. Consider removing them or using a proper logger."
+fi
+
+# Check for debugger statements
+echo "🐛 Checking for debugger statements..."
+for file in $STAGED_FILES; do
+  if [ -f "$file" ] && [[ "$file" =~ \.(js|ts|jsx|tsx)$ ]]; then
+    if grep -q "debugger" "$file"; then
+      echo "❌ Debugger statement found in $file"
+      echo "💡 Please remove debugger statements before committing"
+      exit 1
+    fi
+  fi
+done
+
+# Check for merge conflict markers
+echo "🔀 Checking for merge conflict markers..."
+for file in $STAGED_FILES; do
+  if [ -f "$file" ]; then
+    if grep -q "^<<<<<<< \|^======= \|^>>>>>>> " "$file"; then
+      echo "❌ Merge conflict markers found in $file"
+      echo "💡 Please resolve merge conflicts before committing"
+      exit 1
+    fi
+  fi
+done
+
+# Check for package-lock.json and yarn.lock consistency
+echo "📦 Checking package manager consistency..."
+if echo "$STAGED_FILES" | grep -q "package\.json"; then
+  if [ -f "package-lock.json" ] && [ -f "yarn.lock" ]; then
+    echo "❌ Both package-lock.json and yarn.lock found"
+    echo "💡 Please use only one package manager"
+    exit 1
+  fi
+  
+  if [ -f "package-lock.json" ] && ! echo "$STAGED_FILES" | grep -q "package-lock\.json"; then
+    echo "❌ package.json modified but package-lock.json not staged"
+    echo "💡 Please stage package-lock.json as well"
+    exit 1
+  fi
+fi
+
+# Check TypeScript files for type errors (quick check)
+echo "🔍 Quick TypeScript check..."
+TS_FILES=$(echo "$STAGED_FILES" | grep -E "\.(ts|tsx)$" || true)
+if [ -n "$TS_FILES" ]; then
+  echo "Checking TypeScript files..."
+  if ! npx tsc --noEmit --skipLibCheck; then
+    echo "❌ TypeScript errors found"
+    echo "💡 Please fix TypeScript errors before committing"
+    exit 1
+  fi
+fi
+
+# Check for proper test files
+echo "🧪 Checking test coverage for new files..."
+NEW_FILES=$(git diff --cached --name-only --diff-filter=A)
+for file in $NEW_FILES; do
+  if [[ "$file" =~ \.(js|ts|jsx|tsx)$ ]] && [[ ! "$file" =~ __tests__|\.test\.|\.spec\.|\.stories\.|\.config\.|\.d\.ts$ ]]; then
+    # Check if corresponding test file exists
+    base_name=$(basename "$file" | sed 's/\.[^.]*$//')
+    dir_name=$(dirname "$file")
+    
+    test_patterns=(
+      "$dir_name/__tests__/$base_name.test.*"
+      "$dir_name/$base_name.test.*"
+      "$dir_name/$base_name.spec.*"
+    )
+    
+    has_test=false
+    for pattern in "${test_patterns[@]}"; do
+      if ls $pattern 2>/dev/null | grep -q .; then
+        has_test=true
+        break
+      fi
+    done
+    
+    if [ "$has_test" = false ]; then
+      echo "⚠️  New file $file has no corresponding test file"
+      echo "💡 Consider adding tests for new functionality"
+    fi
+  fi
+done
+
+# Check commit message format (if available)
+if [ -f ".git/COMMIT_EDITMSG" ]; then
+  echo "📝 Checking commit message format..."
+  commit_msg=$(head -n 1 ".git/COMMIT_EDITMSG")
+  
+  # Check for conventional commit format
+  if ! echo "$commit_msg" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build)(\(.+\))?: .+"; then
+    echo "⚠️  Commit message doesn't follow conventional commit format"
+    echo "💡 Use format: type(scope): description"
+    echo "   Examples: feat(auth): add login functionality"
+    echo "            fix(ui): resolve button alignment issue"
+  fi
+  
+  # Check commit message length
+  if [ ${#commit_msg} -gt 72 ]; then
+    echo "⚠️  Commit message is too long (${#commit_msg} chars, max 72)"
+    echo "💡 Keep the first line under 72 characters"
+  fi
+fi
+
+echo "✅ Pre-commit checks completed successfully!"
+echo "🎉 Ready to commit!"

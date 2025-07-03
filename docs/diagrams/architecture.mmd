@@ -1,0 +1,78 @@
+graph TB
+    %% AI ToDo MCP - System Architecture Diagram
+    
+    subgraph "Client Layer"
+        PWA[Progressive Web App<br/>React + TypeScript]
+        SW[Service Worker<br/>Offline Support]
+        IDB[(IndexedDB<br/>Encrypted Storage)]
+        
+        PWA --> SW
+        PWA --> IDB
+    end
+    
+    subgraph "MCP Core Layer"
+        MCP[MCP Engine<br/>Command Parser & Validator]
+        EXEC[Command Executor<br/>Business Logic]
+        PERM[Permission System<br/>Role-based Access]
+        
+        MCP --> EXEC
+        MCP --> PERM
+    end
+    
+    subgraph "AI Agent System"
+        READER[Reader Agent<br/>Query & Report]
+        EXECUTOR[Executor Agent<br/>Task Execution]
+        PLANNER[Planner Agent<br/>Task Planning]
+        
+        READER -.-> MCP
+        EXECUTOR -.-> MCP
+        PLANNER -.-> MCP
+    end
+    
+    subgraph "Backend Services"
+        API[REST API<br/>Express.js]
+        AUTH[Authentication<br/>JWT + RBAC]
+        VALID[Validation Layer<br/>Zod Schemas]
+        
+        API --> AUTH
+        API --> VALID
+    end
+    
+    subgraph "Data Layer"
+        SQLITE[(SQLite<br/>Development)]
+        POSTGRES[(PostgreSQL<br/>Production)]
+        REDIS[(Redis<br/>Caching)]
+        
+        API --> SQLITE
+        API --> POSTGRES
+        API --> REDIS
+    end
+    
+    subgraph "External Services"
+        OPENAI[OpenAI API<br/>GPT-4]
+        ANALYTICS[Analytics<br/>Monitoring]
+        PUSH[Push Notifications<br/>Web Push]
+        
+        EXECUTOR --> OPENAI
+        API --> ANALYTICS
+        API --> PUSH
+    end
+    
+    %% Connections
+    PWA <--> API
+    MCP <--> API
+    
+    %% Styling
+    classDef clientLayer fill:#e1f5fe
+    classDef mcpLayer fill:#f3e5f5
+    classDef agentLayer fill:#e8f5e8
+    classDef backendLayer fill:#fff3e0
+    classDef dataLayer fill:#fce4ec
+    classDef externalLayer fill:#f1f8e9
+    
+    class PWA,SW,IDB clientLayer
+    class MCP,EXEC,PERM mcpLayer
+    class READER,EXECUTOR,PLANNER agentLayer
+    class API,AUTH,VALID backendLayer
+    class SQLITE,POSTGRES,REDIS dataLayer
+    class OPENAI,ANALYTICS,PUSH externalLayer

@@ -1,0 +1,196 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "📝 Validating commit message..."
+
+# Read the commit message
+commit_msg_file="$1"
+commit_msg=$(cat "$commit_msg_file")
+
+# Skip validation for merge commits
+if echo "$commit_msg" | grep -q "^Merge "; then
+  echo "ℹ️  Merge commit detected, skipping validation"
+  exit 0
+fi
+
+# Skip validation for revert commits
+if echo "$commit_msg" | grep -q "^Revert "; then
+  echo "ℹ️  Revert commit detected, skipping validation"
+  exit 0
+fi
+
+# Get the first line (subject)
+subject=$(echo "$commit_msg" | head -n 1)
+
+# Check if subject is empty
+if [ -z "$subject" ]; then
+  echo "❌ Commit message cannot be empty"
+  exit 1
+fi
+
+# Check subject length
+if [ ${#subject} -gt 72 ]; then
+  echo "❌ Commit subject is too long (${#subject} chars, max 72)"
+  echo "💡 Keep the subject line under 72 characters"
+  exit 1
+fi
+
+if [ ${#subject} -lt 10 ]; then
+  echo "❌ Commit subject is too short (${#subject} chars, min 10)"
+  echo "💡 Provide a more descriptive commit message"
+  exit 1
+fi
+
+# Check for conventional commit format
+conventional_pattern="^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+"
+
+if ! echo "$subject" | grep -qE "$conventional_pattern"; then
+  echo "❌ Commit message doesn't follow conventional commit format"
+  echo ""
+  echo "📋 Required format: type(scope): description"
+  echo ""
+  echo "🏷️  Valid types:"
+  echo "   feat:     A new feature"
+  echo "   fix:      A bug fix"
+  echo "   docs:     Documentation only changes"
+  echo "   style:    Changes that don't affect code meaning (formatting, etc.)"
+  echo "   refactor: Code change that neither fixes a bug nor adds a feature"
+  echo "   test:     Adding missing tests or correcting existing tests"
+  echo "   chore:    Changes to build process or auxiliary tools"
+  echo "   perf:     A code change that improves performance"
+  echo "   ci:       Changes to CI configuration files and scripts"
+  echo "   build:    Changes that affect the build system or dependencies"
+  echo "   revert:   Reverts a previous commit"
+  echo ""
+  echo "📝 Examples:"
+  echo "   feat(auth): add OAuth2 login support"
+  echo "   fix(ui): resolve button alignment on mobile"
+  echo "   docs(api): update authentication endpoints"
+  echo "   test(utils): add unit tests for validation helpers"
+  echo "   chore(deps): update React to v18"
+  echo ""
+  exit 1
+fi
+
+# Extract type and scope
+type=$(echo "$subject" | sed -E 's/^([a-z]+)(\(.+\))?: .+/\1/')
+scope=$(echo "$subject" | sed -E 's/^[a-z]+\((.+)\): .+/\1/' | grep -v "^$subject$" || echo "")
+
+# Check if type is valid
+valid_types="feat fix docs style refactor test chore perf ci build revert"
+if ! echo "$valid_types" | grep -q "\b$type\b"; then
+  echo "❌ Invalid commit type: $type"
+  echo "💡 Valid types: $valid_types"
+  exit 1
+fi
+
+# Check scope format (if present)
+if [ -n "$scope" ]; then
+  if ! echo "$scope" | grep -qE "^[a-z0-9-]+$"; then
+    echo "❌ Invalid scope format: $scope"
+    echo "💡 Scope should be lowercase with hyphens (e.g., 'auth', 'user-profile')"
+    exit 1
+  fi
+fi
+
+# Check description
+description=$(echo "$subject" | sed -E 's/^[a-z]+(\(.+\))?: (.+)/\2/')
+
+# Description should start with lowercase
+if echo "$description" | grep -qE "^[A-Z]"; then
+  echo "❌ Description should start with lowercase letter"
+  echo "💡 Current: '$description'"
+  echo "💡 Should be: '$(echo "$description" | sed 's/^./\L&/')"
+  exit 1
+fi
+
+# Description should not end with period
+if echo "$description" | grep -q "\.$"; then
+  echo "❌ Description should not end with a period"
+  echo "💡 Remove the trailing period from: '$description'"
+  exit 1
+fi
+
+# Check for imperative mood (basic check)
+imperative_violations=(
+  "added" "adds" "adding"
+  "fixed" "fixes" "fixing"
+  "updated" "updates" "updating"
+  "removed" "removes" "removing"
+  "changed" "changes" "changing"
+  "created" "creates" "creating"
+  "deleted" "deletes" "deleting"
+  "implemented" "implements" "implementing"
+)
+
+first_word=$(echo "$description" | awk '{print $1}')
+for violation in "${imperative_violations[@]}"; do
+  if [ "$first_word" = "$violation" ]; then
+    echo "❌ Use imperative mood in description"
+    echo "💡 Instead of '$first_word', use the base form (e.g., 'add', 'fix', 'update')"
+    exit 1
+  fi
+done
+
+# Check body format (if present)
+body=$(echo "$commit_msg" | tail -n +3)
+if [ -n "$body" ]; then
+  # Check for blank line between subject and body
+  second_line=$(echo "$commit_msg" | sed -n '2p')
+  if [ -n "$second_line" ]; then
+    echo "❌ Missing blank line between subject and body"
+    echo "💡 Add a blank line after the subject line"
+    exit 1
+  fi
+  
+  # Check body line length
+  while IFS= read -r line; do
+    if [ ${#line} -gt 72 ]; then
+      echo "❌ Body line too long (${#line} chars, max 72)"
+      echo "💡 Wrap body lines at 72 characters"
+      exit 1
+    fi
+  done <<< "$body"
+fi
+
+# Check for breaking changes
+if echo "$commit_msg" | grep -q "BREAKING CHANGE:"; then
+  if [ "$type" != "feat" ] && [ "$type" != "fix" ] && [ "$type" != "perf" ]; then
+    echo "⚠️  Breaking changes should typically use 'feat', 'fix', or 'perf' type"
+  fi
+  
+  # Check if breaking change is properly documented
+  if ! echo "$commit_msg" | grep -A 5 "BREAKING CHANGE:" | grep -q "."; then
+    echo "❌ BREAKING CHANGE must include description"
+    echo "💡 Add description after 'BREAKING CHANGE:' line"
+    exit 1
+  fi
+fi
+
+# Check for issue references
+if echo "$commit_msg" | grep -qE "(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved) #[0-9]+"; then
+  echo "✅ Issue reference found"
+elif echo "$commit_msg" | grep -qE "#[0-9]+"; then
+  echo "✅ Issue reference found"
+else
+  echo "ℹ️  No issue reference found (consider adding 'fixes #123' if applicable)"
+fi
+
+# Success message
+echo "✅ Commit message format is valid!"
+
+# Display commit info
+echo ""
+echo "📋 Commit Summary:"
+echo "   Type: $type"
+if [ -n "$scope" ]; then
+  echo "   Scope: $scope"
+fi
+echo "   Description: $description"
+
+if echo "$commit_msg" | grep -q "BREAKING CHANGE:"; then
+  echo "   ⚠️  Contains breaking changes"
+fi
+
+echo ""
+echo "🎉 Ready to commit!"
