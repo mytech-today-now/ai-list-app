@@ -30,6 +30,9 @@ export interface MCPEngineConfig {
   enablePermissions?: boolean;
   maxExecutionTime?: number; // in milliseconds
   cacheSize?: number;
+  apiUrl?: string;
+  enableRealtime?: boolean;
+  sessionTimeout?: number;
 }
 
 export class MCPEngine {
@@ -50,6 +53,9 @@ export class MCPEngine {
       enablePermissions: true,
       maxExecutionTime: 30000, // 30 seconds
       cacheSize: 1000,
+      apiUrl: '/api',
+      enableRealtime: true,
+      sessionTimeout: 30 * 60 * 1000, // 30 minutes
       ...config,
     };
 
@@ -60,10 +66,15 @@ export class MCPEngine {
     this.logger = new ActionLogger();
 
     // Initialize MCP modules
-    this.sessionManager = new SessionManager();
+    this.sessionManager = new SessionManager({
+      defaultExpirationMinutes: this.config.sessionTimeout! / (60 * 1000),
+      enableSessionExtension: true
+    });
     this.memoryCache = new MemoryCache(this.config.cacheSize);
     this.toolRegistry = new ToolRegistry();
-    this.stateSyncEngine = new StateSyncEngine();
+    this.stateSyncEngine = new StateSyncEngine({
+      syncInterval: this.config.enableRealtime ? 1000 : 5000
+    });
 
     // Wire up dependencies
     this.executor.setModules({
@@ -75,35 +86,50 @@ export class MCPEngine {
   }
 
   /**
-   * Execute an MCP command
+   * Initialize the MCP Engine
+   */
+  async initialize(): Promise<void> {
+    // Initialize modules if needed
+    // This is where you could load configuration, connect to databases, etc.
+    console.log('MCP Engine initialized successfully');
+  }
+
+  /**
+   * Execute an MCP command (supports both string and object formats)
    */
   async executeCommand(
-    commandString: string,
+    command: string | MCPCommand,
     agent?: Agent,
     sessionId?: string
   ): Promise<MCPResponse> {
     const startTime = Date.now();
-    let command: MCPCommand;
+    let parsedCommand: MCPCommand;
+    const commandString = typeof command === 'string' ? command : this.commandToString(command);
 
     try {
-      // Parse command
-      command = this.parser.parse(commandString);
-      command.sessionId = sessionId;
-      command.agentId = agent?.id;
-      command.timestamp = new Date().toISOString();
+      // Parse command (if string) or use provided command object
+      if (typeof command === 'string') {
+        parsedCommand = this.parser.parse(command);
+      } else {
+        parsedCommand = { ...command };
+      }
+
+      parsedCommand.sessionId = sessionId;
+      parsedCommand.agentId = agent?.id;
+      parsedCommand.timestamp = new Date().toISOString();
 
       // Validate command
       if (this.config.enableValidation) {
-        await this.validator.validate(command);
+        await this.validator.validate(parsedCommand);
       }
 
       // Check permissions
       if (this.config.enablePermissions && agent) {
-        this.checkPermissions(command, agent);
+        this.checkPermissions(parsedCommand, agent);
       }
 
       // Execute with timeout
-      const result = await this.executeWithTimeout(command);
+      const result = await this.executeWithTimeout(parsedCommand);
 
       const response: MCPResponse = {
         success: true,
@@ -120,11 +146,11 @@ export class MCPEngine {
       if (this.config.enableLogging) {
         await this.logger.logAction({
           command: commandString,
-          action: command.action,
-          targetType: command.targetType,
-          targetId: command.targetId,
+          action: parsedCommand.action,
+          targetType: parsedCommand.targetType,
+          targetId: parsedCommand.targetId,
           agentId: agent?.id,
-          parameters: command.parameters,
+          parameters: parsedCommand.parameters,
           result,
           success: true,
           executionTime: Date.now() - startTime,
@@ -148,14 +174,14 @@ export class MCPEngine {
       };
 
       // Log failed execution
-      if (this.config.enableLogging && command!) {
+      if (this.config.enableLogging && parsedCommand!) {
         await this.logger.logAction({
           command: commandString,
-          action: command.action,
-          targetType: command.targetType,
-          targetId: command.targetId,
+          action: parsedCommand.action,
+          targetType: parsedCommand.targetType,
+          targetId: parsedCommand.targetId,
           agentId: agent?.id,
-          parameters: command.parameters,
+          parameters: parsedCommand.parameters,
           success: false,
           errorMessage: mcpError.message,
           executionTime: Date.now() - startTime,
@@ -243,6 +269,53 @@ export class MCPEngine {
       message: 'An unknown error occurred',
       details: String(error),
     };
+  }
+
+  /**
+   * Convert command object to string format
+   */
+  private commandToString(command: MCPCommand): string {
+    const params = command.parameters ? JSON.stringify(command.parameters) : '{}';
+    return `${command.action}:${command.targetType}:${command.targetId}${params}`;
+  }
+
+  /**
+   * Discover available tools for an agent
+   */
+  async discoverTools(agent?: Agent): Promise<any[]> {
+    if (agent) {
+      return this.toolRegistry.getAgentTools(agent);
+    }
+    return this.toolRegistry.getTools({ enabled: true });
+  }
+
+  /**
+   * Get available resources
+   */
+  async discoverResources(): Promise<any[]> {
+    // This would typically query the resource registry
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  /**
+   * Stream command execution (for real-time updates)
+   */
+  async *streamCommand(
+    command: string | MCPCommand,
+    agent?: Agent,
+    sessionId?: string
+  ): AsyncGenerator<{ type: 'progress' | 'result' | 'error'; data: any }> {
+    try {
+      yield { type: 'progress', data: { status: 'starting', timestamp: new Date().toISOString() } };
+
+      const result = await this.executeCommand(command, agent, sessionId);
+
+      yield { type: 'progress', data: { status: 'completed', timestamp: new Date().toISOString() } };
+      yield { type: 'result', data: result };
+    } catch (error) {
+      yield { type: 'error', data: this.handleError(error) };
+    }
   }
 
   /**

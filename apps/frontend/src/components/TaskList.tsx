@@ -1,6 +1,19 @@
+/**
+ * MCP-Enhanced TaskList Component
+ * SemanticType: MCPTaskListComponent
+ * ExtensibleByAI: true
+ * AIUseCases: ["Task management", "List operations", "Item manipulation", "AI assistance"]
+ */
+
 import React, { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { TodoList, TodoItem, Priority, ItemStatus } from '@ai-todo/shared-types'
+import {
+  useMCPTool,
+  useMCPResource,
+  useMCPPrompt,
+  useMCPSubscription
+} from '../hooks'
 
 interface TaskListProps {
   listId: string
@@ -52,12 +65,11 @@ const TaskItem: React.FC<TaskItemProps> = ({
   }
 
   return (
-    <div 
+    <div
       className={`p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer ${
         item.status === 'completed' ? 'opacity-75' : ''
       }`}
       onClick={onClick}
-      role="listitem"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -136,6 +148,34 @@ const TaskList: React.FC<TaskListProps> = ({ listId, onItemClick, onItemUpdate }
   const [filter, setFilter] = useState<ItemStatus | 'all'>('all')
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate' | 'status'>('priority')
 
+  // MCP Tool: Filter Items
+  const filterItems = useCallback(async (params: { status?: ItemStatus | 'all' }) => {
+    setFilter(params.status || 'all')
+    return { success: true, filter: params.status }
+  }, [])
+
+  useMCPTool('filterItems', filterItems, {
+    description: 'Filter task items by status',
+    parameters: {
+      status: { type: 'string', enum: ['all', 'pending', 'in_progress', 'completed', 'blocked', 'cancelled'], required: false }
+    },
+    category: 'list_management'
+  })
+
+  // MCP Tool: Sort Items
+  const sortItems = useCallback(async (params: { sortBy: 'priority' | 'dueDate' | 'status' }) => {
+    setSortBy(params.sortBy)
+    return { success: true, sortBy: params.sortBy }
+  }, [])
+
+  useMCPTool('sortItems', sortItems, {
+    description: 'Sort task items by different criteria',
+    parameters: {
+      sortBy: { type: 'string', enum: ['priority', 'dueDate', 'status'], required: true }
+    },
+    category: 'list_management'
+  })
+
   // Fetch list data
   const { data: list, isLoading: listLoading, error: listError } = useQuery({
     queryKey: ['list', listId],
@@ -156,6 +196,51 @@ const TaskList: React.FC<TaskListProps> = ({ listId, onItemClick, onItemUpdate }
       const result = await response.json()
       return result.data
     }
+  })
+
+  // MCP Resource: List Data
+  useMCPResource('listData', list, {
+    description: 'Current task list data',
+    schema: { id: 'string', title: 'string', description: 'string' },
+    category: 'data'
+  })
+
+  // MCP Resource: Items Data
+  useMCPResource('itemsData', items, {
+    description: 'Current task items data',
+    schema: { type: 'array', items: { type: 'object' } },
+    category: 'data'
+  })
+
+  // MCP Resource: Filter State
+  useMCPResource('filterState', { filter, sortBy }, {
+    description: 'Current filter and sort settings',
+    category: 'ui_state'
+  })
+
+  // MCP Prompt: List Context
+  useMCPPrompt('listContext', {
+    template: `Task List: {{listTitle}}
+Items: {{totalItems}} total, {{completedItems}} completed, {{pendingItems}} pending
+Current filter: {{currentFilter}}
+Sort order: {{sortBy}}`,
+    variables: {
+      listTitle: list?.title || 'Unknown',
+      totalItems: items.length,
+      completedItems: items.filter(item => item.status === 'completed').length,
+      pendingItems: items.filter(item => item.status === 'pending').length,
+      currentFilter: filter,
+      sortBy
+    },
+    examples: [
+      'To filter items, use the filterItems tool with status parameter',
+      'To sort items, use the sortItems tool with sortBy parameter'
+    ]
+  }, {
+    description: 'Provides context about current task list state',
+    category: 'context',
+    priority: 'high',
+    dynamic: true
   })
 
   // Update item mutation
@@ -280,6 +365,7 @@ const TaskList: React.FC<TaskListProps> = ({ listId, onItemClick, onItemUpdate }
           <p>No items found</p>
           {filter !== 'all' && (
             <button
+              type="button"
               onClick={() => setFilter('all')}
               className="mt-2 text-blue-500 hover:text-blue-700 underline"
             >
@@ -288,7 +374,7 @@ const TaskList: React.FC<TaskListProps> = ({ listId, onItemClick, onItemUpdate }
           )}
         </div>
       ) : (
-        <div className="space-y-3" role="list" aria-label="Task items">
+        <div className="space-y-3">
           {filteredAndSortedItems.map((item) => (
             <TaskItem
               key={item.id}

@@ -17,6 +17,7 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
+    "rootDir": ".",
     "paths": {
       "@/*": ["src/*"],
       "@ai-todo/*": ["../../packages/*/src"]
