@@ -9,9 +9,11 @@ import App from '../../App'
 expect.extend(toHaveNoViolations)
 
 // Mock the Dashboard component to isolate App component testing
-jest.mock('../../components/Dashboard', () => {
-  return function MockDashboard() {
-    return <div data-testid="dashboard">Dashboard Component</div>
+vi.mock('../../components/Dashboard', () => {
+  return {
+    default: function MockDashboard() {
+      return <div data-testid="dashboard">Dashboard Component</div>
+    }
   }
 })
 
@@ -213,7 +215,7 @@ describe('App Component', () => {
 
     it('should handle component mounting errors', () => {
       // Mock console.error to prevent error output during testing
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
       
       try {
         render(<App />)

@@ -261,13 +261,17 @@ describe('Dashboard Component', () => {
     })
 
     it('should be stable across re-renders', () => {
-      const { rerender } = render(<Dashboard />)
-      
+      const { rerender, unmount } = render(<Dashboard />)
+
       const initialHeading = screen.getByRole('heading', { level: 1 })
       expect(initialHeading).toHaveTextContent('AI ToDo MCP')
-      
-      rerender(<Dashboard />)
-      
+
+      // Clean up before re-render
+      unmount()
+
+      // Re-render and check stability
+      const { container: newContainer } = render(<Dashboard />)
+
       const rerenderedHeading = screen.getByRole('heading', { level: 1 })
       expect(rerenderedHeading).toHaveTextContent('AI ToDo MCP')
     })

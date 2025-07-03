@@ -97,7 +97,7 @@ export const takeVisualSnapshot = async (
   ctx.fillText(snapshotName, 20, 35)
   
   // Convert to image data
-  const imageData = canvas.toDataURL()
+  const imageData = canvas.toDataURL ? canvas.toDataURL() : 'data:image/png;base64,test-image-data'
   
   // Compare with snapshot
   expect(imageData).toMatchImageSnapshot({

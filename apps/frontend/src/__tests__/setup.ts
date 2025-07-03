@@ -146,16 +146,59 @@ global.navigator.geolocation = {
 }
 
 // Mock crypto for secure random generation
-global.crypto = {
-  ...global.crypto,
-  getRandomValues: vi.fn((arr) => {
-    for (let i = 0; i < arr.length; i++) {
-      arr[i] = Math.floor(Math.random() * 256)
+Object.defineProperty(global, 'crypto', {
+  value: {
+    getRandomValues: vi.fn((arr) => {
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = Math.floor(Math.random() * 256)
+      }
+      return arr
+    }),
+    randomUUID: vi.fn(() => 'test-uuid-' + Math.random().toString(36).substr(2, 9)),
+  },
+  writable: true
+})
+
+// Mock HTMLCanvasElement for visual testing
+Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  value: vi.fn((contextType: string) => {
+    if (contextType === '2d') {
+      return {
+        fillRect: vi.fn(),
+        clearRect: vi.fn(),
+        getImageData: vi.fn(() => ({ data: new Array(4) })),
+        putImageData: vi.fn(),
+        createImageData: vi.fn(() => ({ data: new Array(4) })),
+        setTransform: vi.fn(),
+        drawImage: vi.fn(),
+        save: vi.fn(),
+        fillText: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        stroke: vi.fn(),
+        translate: vi.fn(),
+        scale: vi.fn(),
+        rotate: vi.fn(),
+        arc: vi.fn(),
+        fill: vi.fn(),
+        measureText: vi.fn(() => ({ width: 0 })),
+        transform: vi.fn(),
+        rect: vi.fn(),
+        clip: vi.fn(),
+        canvas: {
+          width: 800,
+          height: 600,
+          toDataURL: vi.fn(() => 'data:image/png;base64,test')
+        }
+      }
     }
-    return arr
+    return null
   }),
-  randomUUID: vi.fn(() => 'test-uuid-' + Math.random().toString(36).substr(2, 9)),
-}
+  writable: true
+})
 
 // Mock IndexedDB for PWA storage testing
 global.indexedDB = {

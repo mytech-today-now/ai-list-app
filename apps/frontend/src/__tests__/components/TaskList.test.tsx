@@ -10,7 +10,7 @@ import { TodoList, TodoItem } from '@ai-todo/shared-types'
 expect.extend(toHaveNoViolations)
 
 // Mock fetch
-global.fetch = jest.fn()
+global.fetch = vi.fn()
 
 const mockList: TodoList = {
   id: 'list-1',
@@ -61,8 +61,8 @@ const mockItems: TodoItem[] = [
 
 describe('TaskList Component', () => {
   let queryClient: QueryClient
-  const mockOnItemClick = jest.fn()
-  const mockOnItemUpdate = jest.fn()
+  const mockOnItemClick = vi.fn()
+  const mockOnItemUpdate = vi.fn()
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -72,7 +72,7 @@ describe('TaskList Component', () => {
       }
     })
     
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     
     // Mock successful API responses
     ;(fetch as jest.Mock)
