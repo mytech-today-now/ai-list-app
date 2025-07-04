@@ -73,6 +73,9 @@ import itemsRouter from './routes/items'
 import agentsRouter from './routes/agents'
 import sessionsRouter from './routes/sessions'
 
+// Enhanced middleware imports
+import { errorHandler, notFoundHandler } from './middleware/errorHandler'
+
 // Create database directory if it doesn't exist
 const dbPath = process.env.DATABASE_URL?.replace('sqlite:', '') || './data/ai-todo.db'
 await mkdir(dirname(dbPath), { recursive: true }).catch(() => {})
@@ -340,26 +343,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(statusCode).json(errorResponse)
 })
 
-// 404 handler
-app.use('*', (req, res) => {
-  const correlationId = req.correlationId || randomUUID()
-
-  logger.warn('Route not found', {
-    url: req.url,
-    method: req.method,
-    correlationId,
-    userAgent: req.get('User-Agent'),
-    ip: req.ip
-  })
-
-  res.status(404).json({
-    success: false,
-    error: 'NotFound',
-    message: 'The requested resource was not found',
-    correlationId,
-    timestamp: new Date().toISOString()
-  })
-})
+// Use enhanced error handlers
+app.use('*', notFoundHandler)
+app.use(errorHandler)
 
 // Enhanced graceful shutdown handling
 let server: any

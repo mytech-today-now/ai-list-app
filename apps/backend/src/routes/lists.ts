@@ -1,402 +1,200 @@
 import { Router } from 'express'
-import { listsService, itemsService } from '../db/services'
-import { randomUUID } from 'crypto'
+import { listsController } from '../controllers/lists'
+import { validateBody, validateParams, validateQuery, crudValidation, rateLimitValidation } from '../middleware/validation'
+import { asyncHandler } from '../middleware/errorHandler'
+import { listSchemas, actionSchemas } from '../validation/schemas'
+
+/**
+ * SemanticType: EnhancedListsRouter
+ * Description: Enhanced lists router with standardized CRUD operations, validation, and proper HTTP status codes
+ * ExtensibleByAI: true
+ * AIUseCases:
+ *   - Add custom route handlers
+ *   - Extend validation rules
+ *   - Add caching middleware
+ *   - Integrate with MCP protocols
+ */
 
 const router = Router()
 
+// Apply rate limiting to all routes
+router.use(rateLimitValidation)
+
 /**
  * GET /api/lists
- * Get all lists with optional hierarchy
+ * Get all lists with optional hierarchy and filtering
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
  */
-router.get('/', async (req, res) => {
-  try {
-    const { tree, parent } = req.query
-    
-    if (tree === 'true') {
-      const lists = await listsService.getTree()
-      res.json({
-        success: true,
-        data: lists,
-        message: `Found ${lists.length} root lists`
-      })
-    } else if (parent) {
-      const parentId = parent === 'null' ? null : parent as string
-      const lists = await listsService.findByParent(parentId)
-      res.json({
-        success: true,
-        data: lists,
-        message: `Found ${lists.length} lists`
-      })
-    } else {
-      const lists = await listsService.findWithItemCounts()
-      res.json({
-        success: true,
-        data: lists,
-        message: `Found ${lists.length} lists`
-      })
-    }
-  } catch (error) {
-    console.error('Error fetching lists:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to fetch lists'
-    })
-  }
-})
+router.get('/',
+  validateQuery(listSchemas.query),
+  asyncHandler(listsController.list.bind(listsController))
+)
 
 /**
  * GET /api/lists/:id
- * Get a specific list by ID
+ * Get a specific list by ID with optional includes
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid parameters
+ *   404 - List not found
+ *   500 - Server error
  */
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { include } = req.query
-    
-    const list = await listsService.findById(id)
-    if (!list) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
-
-    let result: any = list
-
-    if (include === 'children') {
-      result = await listsService.getHierarchy(id)
-    } else if (include === 'items') {
-      const items = await itemsService.findByListId(id)
-      result = { ...list, items }
-    } else if (include === 'breadcrumbs') {
-      const breadcrumbs = await listsService.getBreadcrumbs(id)
-      result = { ...list, breadcrumbs }
-    }
-
-    res.json({
-      success: true,
-      data: result,
-      message: 'List found'
-    })
-  } catch (error) {
-    console.error('Error fetching list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to fetch list'
-    })
-  }
-})
+router.get('/:id',
+  validateParams(listSchemas.params),
+  validateQuery(listSchemas.query),
+  asyncHandler(listsController.getById.bind(listsController))
+)
 
 /**
  * POST /api/lists
  * Create a new list
+ * Status Codes:
+ *   201 - Created successfully
+ *   400 - Validation error
+ *   409 - Conflict (duplicate)
+ *   500 - Server error
  */
-router.post('/', async (req, res) => {
-  try {
-    const { title, description, parentListId, priority = 'medium' } = req.body
-
-    if (!title) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error',
-        message: 'Title is required'
-      })
-    }
-
-    const newList = await listsService.create({
-      id: randomUUID(),
-      title,
-      description,
-      parentListId: parentListId || null,
-      priority,
-      status: 'active',
-      createdBy: 'user', // TODO: Get from auth
-      createdAt: new Date(),
-      updatedAt: new Date()
-    })
-
-    res.status(201).json({
-      success: true,
-      data: newList,
-      message: 'List created successfully'
-    })
-  } catch (error) {
-    console.error('Error creating list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to create list'
-    })
-  }
-})
+router.post('/',
+  validateBody(listSchemas.create),
+  asyncHandler(listsController.create.bind(listsController))
+)
 
 /**
  * PUT /api/lists/:id
- * Update a list
+ * Update a list (full update)
+ * Status Codes:
+ *   200 - Updated successfully
+ *   400 - Validation error
+ *   404 - List not found
+ *   500 - Server error
  */
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { title, description, priority, status } = req.body
+router.put('/:id',
+  validateParams(listSchemas.params),
+  validateBody(listSchemas.update),
+  asyncHandler(listsController.update.bind(listsController))
+)
 
-    const updatedList = await listsService.updateById(id, {
-      title,
-      description,
-      priority,
-      status,
-      updatedAt: new Date()
-    })
-
-    if (!updatedList) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
-
-    res.json({
-      success: true,
-      data: updatedList,
-      message: 'List updated successfully'
-    })
-  } catch (error) {
-    console.error('Error updating list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to update list'
-    })
-  }
-})
+/**
+ * PATCH /api/lists/:id
+ * Partially update a list
+ * Status Codes:
+ *   200 - Updated successfully
+ *   400 - Validation error
+ *   404 - List not found
+ *   500 - Server error
+ */
+router.patch('/:id',
+  validateParams(listSchemas.params),
+  validateBody(listSchemas.update.partial()),
+  asyncHandler(listsController.patch.bind(listsController))
+)
 
 /**
  * DELETE /api/lists/:id
  * Delete a list
+ * Status Codes:
+ *   200 - Deleted successfully
+ *   404 - List not found
+ *   500 - Server error
  */
-router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params
+router.delete('/:id',
+  validateParams(listSchemas.params),
+  asyncHandler(listsController.delete.bind(listsController))
+)
 
-    const deleted = await listsService.deleteById(id)
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
+/**
+ * HEAD /api/lists/:id
+ * Check if list exists
+ * Status Codes:
+ *   200 - List exists
+ *   404 - List not found
+ *   500 - Server error
+ */
+router.head('/:id',
+  validateParams(listSchemas.params),
+  asyncHandler(listsController.head.bind(listsController))
+)
 
-    res.json({
-      success: true,
-      message: 'List deleted successfully'
-    })
-  } catch (error) {
-    console.error('Error deleting list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to delete list'
-    })
-  }
-})
+/**
+ * OPTIONS /api/lists
+ * Get allowed methods
+ * Status Codes:
+ *   200 - Success
+ */
+router.options('/',
+  asyncHandler(listsController.options.bind(listsController))
+)
 
 /**
  * POST /api/lists/:id/move
  * Move a list to a new parent
+ * Status Codes:
+ *   200 - Moved successfully
+ *   400 - Validation error (circular reference)
+ *   404 - List not found
+ *   500 - Server error
  */
-router.post('/:id/move', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { parentId } = req.body
-
-    const updatedList = await listsService.moveToParent(id, parentId || null)
-    if (!updatedList) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
-
-    res.json({
-      success: true,
-      data: updatedList,
-      message: 'List moved successfully'
-    })
-  } catch (error) {
-    console.error('Error moving list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: error.message || 'Failed to move list'
-    })
-  }
-})
+router.post('/:id/move',
+  validateParams(listSchemas.params),
+  validateBody(actionSchemas.moveList),
+  asyncHandler(listsController.move.bind(listsController))
+)
 
 /**
  * POST /api/lists/:id/reorder
  * Reorder a list within its parent
+ * Status Codes:
+ *   200 - Reordered successfully
+ *   400 - Validation error
+ *   404 - List not found
+ *   500 - Server error
  */
-router.post('/:id/reorder', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { position } = req.body
-
-    if (typeof position !== 'number') {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error',
-        message: 'Position must be a number'
-      })
-    }
-
-    await listsService.reorder(id, position)
-
-    res.json({
-      success: true,
-      message: 'List reordered successfully'
-    })
-  } catch (error) {
-    console.error('Error reordering list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: error.message || 'Failed to reorder list'
-    })
-  }
-})
+router.post('/:id/reorder',
+  validateParams(listSchemas.params),
+  validateBody(actionSchemas.reorderList),
+  asyncHandler(listsController.reorder.bind(listsController))
+)
 
 /**
  * POST /api/lists/:id/archive
  * Archive a list and its children
+ * Status Codes:
+ *   200 - Archived successfully
+ *   404 - List not found
+ *   500 - Server error
  */
-router.post('/:id/archive', async (req, res) => {
-  try {
-    const { id } = req.params
-
-    await listsService.archive(id)
-
-    res.json({
-      success: true,
-      message: 'List archived successfully'
-    })
-  } catch (error) {
-    console.error('Error archiving list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to archive list'
-    })
-  }
-})
-
-/**
- * POST /api/lists/:id/restore
- * Restore an archived list
- */
-router.post('/:id/restore', async (req, res) => {
-  try {
-    const { id } = req.params
-
-    const restoredList = await listsService.updateById(id, {
-      status: 'active',
-      updatedAt: new Date()
-    })
-
-    if (!restoredList) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
-
-    res.json({
-      success: true,
-      data: restoredList,
-      message: 'List restored successfully'
-    })
-  } catch (error) {
-    console.error('Error restoring list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to restore list'
-    })
-  }
-})
+router.post('/:id/archive',
+  validateParams(listSchemas.params),
+  asyncHandler(listsController.archive.bind(listsController))
+)
 
 /**
  * POST /api/lists/:id/complete
  * Mark a list as completed
+ * Status Codes:
+ *   200 - Completed successfully
+ *   404 - List not found
+ *   500 - Server error
  */
-router.post('/:id/complete', async (req, res) => {
-  try {
-    const { id } = req.params
-
-    const completedList = await listsService.updateById(id, {
-      status: 'completed',
-      completedAt: new Date(),
-      updatedAt: new Date()
-    })
-
-    if (!completedList) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
-
-    res.json({
-      success: true,
-      data: completedList,
-      message: 'List marked as completed'
-    })
-  } catch (error) {
-    console.error('Error completing list:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to complete list'
-    })
-  }
-})
+router.post('/:id/complete',
+  validateParams(listSchemas.params),
+  asyncHandler(listsController.complete.bind(listsController))
+)
 
 /**
  * GET /api/lists/:id/stats
  * Get statistics for a list
+ * Status Codes:
+ *   200 - Success
+ *   404 - List not found
+ *   500 - Server error
  */
-router.get('/:id/stats', async (req, res) => {
-  try {
-    const { id } = req.params
-
-    const stats = await listsService.getStats(id)
-    if (!stats) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not found',
-        message: 'List not found'
-      })
-    }
-
-    res.json({
-      success: true,
-      data: stats,
-      message: 'List statistics retrieved'
-    })
-  } catch (error) {
-    console.error('Error fetching list stats:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to fetch list statistics'
-    })
-  }
-})
+router.get('/:id/stats',
+  validateParams(listSchemas.params),
+  asyncHandler(listsController.getStats.bind(listsController))
+)
 
 export default router
