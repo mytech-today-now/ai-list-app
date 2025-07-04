@@ -1,62 +1,67 @@
-# Dependencies
+# ===================================
+# Dependencies & Package Managers
+# ===================================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.pnpm-store/
+.pnpm-debug.log*
 
-# Build outputs
+# Yarn v2+
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Package manager lock files (keep only one)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ===================================
+# Build Outputs & Compiled Assets
+# ===================================
 dist/
 build/
+out/
 *.tsbuildinfo
 .cache/
+.parcel-cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
 
+# Framework-specific build outputs
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+
+# Compiled binary addons
+build/Release
+
+# ===================================
+# Development & Runtime Files
+# ===================================
 # Runtime data
 pids
 *.pid
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-
-# nyc test coverage
-.nyc_output
-
-# Grunt intermediate storage
-.grunt
-
-# Bower dependency directory
-bower_components
-
-# node-waf configuration
-.lock-wscript
-
-# Compiled binary addons
-build/Release
-
-# Dependency directories
-jspm_packages/
-
-# TypeScript cache
-*.tsbuildinfo
-
 # Optional npm cache directory
 .npm
 
-# Optional eslint cache
+# Optional package manager caches
 .eslintcache
-
-# Optional stylelint cache
 .stylelintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
+.prettiercache
 
 # Optional REPL history
 .node_repl_history
@@ -67,125 +72,289 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# ===================================
+# Environment & Configuration
+# ===================================
+# Environment variables
 .env
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
+.env.*.local
 
-# parcel-bundler cache
-.parcel-cache
+# Configuration overrides
+config.local.js
+config.local.json
+.versionrc.local.json
 
-# Next.js build output
-.next
-out/
-
-# Nuxt.js build / generate output
-.nuxt
-dist
-
-# Gatsby files
-.cache/
-public
-
-# Vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless/
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-
-# Database files
+# ===================================
+# Database & Storage
+# ===================================
+# SQLite databases
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 
-# Logs
-logs
+# PostgreSQL
+*.dump
+*.sql.gz
+
+# Database migrations (keep source, ignore generated)
+# migrations/*.sql
+
+# ===================================
+# Logs & Monitoring
+# ===================================
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Application logs
+app.log
+error.log
+access.log
+combined.log
 
-# IDE files
+# ===================================
+# Testing & Coverage
+# ===================================
+# Test results and reports
+test-results/
+playwright-report/
+coverage/
+*.lcov
+.nyc_output/
+.jest-cache/
+.vitest-cache/
+
+# Visual regression testing
+visual-regression/
+__image_snapshots__/
+__diff_output__/
+__screenshots__/
+
+# Performance testing
+performance-results/
+lighthouse-reports/
+k6-results/
+
+# Accessibility testing
+accessibility-reports/
+
+# Coverage badges and reports
+coverage-badges/
+coverage-summary.json
+
+# ===================================
+# Documentation & Analysis
+# ===================================
+# Generated documentation
+docs/api/
+docs/diagrams/*.svg
+docs/diagrams/*.png
+docs/diagrams/*.pdf
+docs-temp/
+api-docs-temp/
+
+# Dependency analysis
+dependency-graph.svg
+dependency-graph.png
+bundle-analyzer-report.html
+
+# ===================================
+# IDE & Editor Files
+# ===================================
+# VSCode
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ IDEA
 .idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
 *.swp
 *.swo
 *~
+.netrwhist
 
-# OS generated files
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# ===================================
+# Operating System Files
+# ===================================
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
-Thumbs.db
+.AppleDouble
+.LSOverride
+Icon?
 
-# Temporary files
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===================================
+# Temporary & Cache Files
+# ===================================
 tmp/
 temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
 
-# PWA files
+# ===================================
+# PWA & Service Workers
+# ===================================
+# Generated service workers
 sw.js
 workbox-*.js
+precache-manifest.*.js
+service-worker.js
 
-# Local development
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# PWA build artifacts
+manifest.json.map
+sw.js.map
 
-# Documentation artifacts
-docs/api/
-docs/diagrams/*.svg
-docs/diagrams/*.png
-docs/diagrams/*.pdf
-*.tgz
+# ===================================
+# AI & MCP Specific
+# ===================================
+# AI model files (if stored locally)
+*.model
+*.weights
+*.onnx
+*.tflite
 
-# Testing artifacts
-test-results/
-playwright-report/
-visual-regression/
-performance-results/
-lighthouse-reports/
-coverage-badges/
+# MCP protocol artifacts
+mcp-logs/
+mcp-cache/
+.mcp-state
 
-# Build artifacts
-.nyc_output/
-.jest-cache/
-.vitest-cache/
+# AI training data (if any)
+training-data/
+datasets/
+*.csv.gz
+*.jsonl.gz
 
-# Dependency analysis
-dependency-graph.svg
-dependency-graph.png
+# ===================================
+# Security & Secrets
+# ===================================
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# Security scan results
+security-reports/
+vulnerability-reports/
+
+# ===================================
+# Deployment & CI/CD
+# ===================================
+# Deployment artifacts
+deploy/
+deployment-logs/
+.deploy/
+
+# Docker
+.dockerignore.local
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Kubernetes
+*.kubeconfig
+k8s-secrets/
+
+# CI/CD
+.github/workflows/secrets/
+.gitlab-ci-local/
+
+# ===================================
+# Miscellaneous
+# ===================================
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
 
 # Version control
 .versionrc.local.json
 
-# Temporary documentation files
-docs-temp/
-api-docs-temp/
+# Package outputs
+*.tgz
+*.tar.gz
+
+# Storybook
+storybook-static/
+.storybook/public/
+
+# Chromatic
+chromatic-build/
+.chromatic/
+
+# Husky
+.husky/_/
