@@ -149,7 +149,9 @@ export function getLoadingClasses() {
 /**
  * Generate semantic class names for MCP components
  */
-export function getMCPClasses(type: 'command' | 'resource' | 'prompt' | 'event' | 'error') {
+export function getMCPClasses(type?: 'command' | 'resource' | 'prompt' | 'event' | 'error') {
+  if (!type) return ''
+
   const mcpMap = {
     command: 'mcp-command border-l-4 border-mcp-command bg-blue-50',
     resource: 'mcp-resource border-l-4 border-mcp-resource bg-green-50',
@@ -293,4 +295,54 @@ export function isSemanticVariant(value: string): value is SemanticVariant {
  */
 export function isComponentSize(value: string): value is ComponentSize {
   return ['sm', 'md', 'lg'].includes(value)
+}
+
+/**
+ * ARIA roles for accessibility
+ */
+export type AriaRole =
+  | 'button'
+  | 'link'
+  | 'dialog'
+  | 'alert'
+  | 'status'
+  | 'region'
+  | 'navigation'
+  | 'main'
+  | 'complementary'
+  | 'banner'
+  | 'contentinfo'
+
+/**
+ * Design tokens interface
+ */
+export interface DesignTokens {
+  colors: ColorTokens
+  spacing: SpacingTokens
+  typography: TypographyTokens
+}
+
+export interface ColorTokens {
+  primary: Record<string, string>
+  secondary: Record<string, string>
+  success: Record<string, string>
+  warning: Record<string, string>
+  error: Record<string, string>
+  info: Record<string, string>
+  neutral: Record<string, string>
+}
+
+export interface SpacingTokens {
+  xs: string
+  sm: string
+  md: string
+  lg: string
+  xl: string
+}
+
+export interface TypographyTokens {
+  fontFamily: Record<string, string>
+  fontSize: Record<string, string>
+  fontWeight: Record<string, string>
+  lineHeight: Record<string, string>
 }

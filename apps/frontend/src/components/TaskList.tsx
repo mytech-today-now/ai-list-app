@@ -14,6 +14,7 @@ import {
   useMCPPrompt,
   useMCPSubscription
 } from '../hooks'
+import { validateTodoItemsResponse, validateTodoListResponse } from '../utils/type-guards'
 
 interface TaskListProps {
   listId: string
@@ -176,25 +177,31 @@ const TaskList: React.FC<TaskListProps> = ({ listId, onItemClick, onItemUpdate }
     category: 'list_management'
   })
 
-  // Fetch list data
+  // Fetch list data with improved error handling and validation
   const { data: list, isLoading: listLoading, error: listError } = useQuery({
     queryKey: ['list', listId],
     queryFn: async (): Promise<TodoList> => {
       const response = await fetch(`/api/lists/${listId}`)
-      if (!response.ok) throw new Error('Failed to fetch list')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch list: ${response.status} ${response.statusText}`)
+      }
+
       const result = await response.json()
-      return result.data
+      return validateTodoListResponse(result)
     }
   })
 
-  // Fetch items
+  // Fetch items with improved error handling and type validation
   const { data: items = [], isLoading: itemsLoading, error: itemsError } = useQuery({
     queryKey: ['items', listId],
     queryFn: async (): Promise<TodoItem[]> => {
       const response = await fetch(`/api/items?listId=${listId}`)
-      if (!response.ok) throw new Error('Failed to fetch items')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch items: ${response.status} ${response.statusText}`)
+      }
+
       const result = await response.json()
-      return result.data
+      return validateTodoItemsResponse(result)
     }
   })
 
@@ -226,9 +233,9 @@ Current filter: {{currentFilter}}
 Sort order: {{sortBy}}`,
     variables: {
       listTitle: list?.title || 'Unknown',
-      totalItems: items.length,
-      completedItems: items.filter(item => item.status === 'completed').length,
-      pendingItems: items.filter(item => item.status === 'pending').length,
+      totalItems: Array.isArray(items) ? items.length : 0,
+      completedItems: Array.isArray(items) ? items.filter(item => item.status === 'completed').length : 0,
+      pendingItems: Array.isArray(items) ? items.filter(item => item.status === 'pending').length : 0,
       currentFilter: filter,
       sortBy
     },
@@ -274,12 +281,14 @@ Sort order: {{sortBy}}`,
 
   // Filter and sort items
   const filteredAndSortedItems = React.useMemo(() => {
-    let filtered = items
-    
+    // Ensure items is an array
+    const safeItems = Array.isArray(items) ? items : []
+    let filtered = safeItems
+
     if (filter !== 'all') {
-      filtered = items.filter(item => item.status === filter)
+      filtered = safeItems.filter(item => item.status === filter)
     }
-    
+
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'priority':
@@ -391,24 +400,24 @@ Sort order: {{sortBy}}`,
       <div className="mt-6 p-4 bg-gray-50 rounded-lg">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-gray-900">{items.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{Array.isArray(items) ? items.length : 0}</div>
             <div className="text-sm text-gray-600">Total Items</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-green-600">
-              {items.filter(item => item.status === 'completed').length}
+              {Array.isArray(items) ? items.filter(item => item.status === 'completed').length : 0}
             </div>
             <div className="text-sm text-gray-600">Completed</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-blue-600">
-              {items.filter(item => item.status === 'in_progress').length}
+              {Array.isArray(items) ? items.filter(item => item.status === 'in_progress').length : 0}
             </div>
             <div className="text-sm text-gray-600">In Progress</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-yellow-600">
-              {items.filter(item => item.status === 'pending').length}
+              {Array.isArray(items) ? items.filter(item => item.status === 'pending').length : 0}
             </div>
             <div className="text-sm text-gray-600">Pending</div>
           </div>

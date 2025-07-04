@@ -7,27 +7,28 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { axe, toHaveNoViolations } from 'jest-axe'
+import { vi } from 'vitest'
 import { Button } from '../ui/Button'
-import { testUtils, performanceUtils, aiTestUtils, mockMCPClient } from './setup'
+import { renderWithProviders } from '../../__tests__/utils/test-utils'
 
 expect.extend(toHaveNoViolations)
 
 describe('Button Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   describe('Basic Functionality', () => {
     it('renders with default props', () => {
       render(<Button>Click me</Button>)
-      
+
       const button = screen.getByRole('button', { name: /click me/i })
       expect(button).toBeInTheDocument()
       expect(button).toHaveClass('bg-primary-600', 'text-white')
     })
 
     it('handles click events', async () => {
-      const handleClick = jest.fn()
+      const handleClick = vi.fn()
       render(<Button onClick={handleClick}>Click me</Button>)
       
       const button = screen.getByRole('button')

@@ -265,34 +265,6 @@ export const useMCPContext = (): MCPContextValue => {
   return context;
 };
 
-/**
- * Hook for MCP-aware navigation
- */
-export const useMCPNavigation = () => {
-  const { executeCommand } = useMCPContext();
-  const { emit } = useMCPEventEmitter();
 
-  const navigateTo = useCallback(async (path: string, params?: Record<string, any>) => {
-    try {
-      // Emit navigation event for AI awareness
-      emit('navigation.request', { path, params });
-      
-      // Execute MCP navigation command
-      await executeCommand({
-        action: 'execute',
-        targetType: 'system',
-        targetId: 'navigation',
-        parameters: { path, params }
-      });
-
-      emit('navigation.completed', { path, params });
-    } catch (error) {
-      emit('navigation.error', { path, params, error });
-      throw error;
-    }
-  }, [executeCommand, emit]);
-
-  return { navigateTo };
-};
 
 export default MCPContext;

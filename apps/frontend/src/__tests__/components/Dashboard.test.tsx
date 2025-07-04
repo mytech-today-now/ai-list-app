@@ -1,15 +1,16 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import Dashboard from '../../components/Dashboard'
+import { renderWithProviders } from '../utils/test-utils'
 
 // Extend expect with jest-axe matchers
 expect.extend(toHaveNoViolations)
 
 describe('Dashboard Component', () => {
   beforeEach(() => {
-    render(<Dashboard />)
+    renderWithProviders(<Dashboard />)
   })
 
   describe('Rendering', () => {
@@ -138,7 +139,7 @@ describe('Dashboard Component', () => {
 
   describe('Accessibility', () => {
     it('should have no accessibility violations', async () => {
-      const { container } = render(<Dashboard />)
+      const { container } = renderWithProviders(<Dashboard />)
       const results = await axe(container)
       expect(results).toHaveNoViolations()
     })
@@ -251,17 +252,17 @@ describe('Dashboard Component', () => {
 
   describe('Error Boundaries and Edge Cases', () => {
     it('should render without crashing', () => {
-      expect(() => render(<Dashboard />)).not.toThrow()
+      expect(() => renderWithProviders(<Dashboard />)).not.toThrow()
     })
 
     it('should handle missing CSS classes gracefully', () => {
       // This test ensures the component doesn't break if Tailwind CSS isn't loaded
-      const { container } = render(<Dashboard />)
+      const { container } = renderWithProviders(<Dashboard />)
       expect(container.firstChild).toBeInTheDocument()
     })
 
     it('should be stable across re-renders', () => {
-      const { rerender, unmount } = render(<Dashboard />)
+      const { rerender, unmount } = renderWithProviders(<Dashboard />)
 
       const initialHeading = screen.getByRole('heading', { level: 1 })
       expect(initialHeading).toHaveTextContent('AI ToDo MCP')
@@ -270,7 +271,7 @@ describe('Dashboard Component', () => {
       unmount()
 
       // Re-render and check stability
-      const { container: newContainer } = render(<Dashboard />)
+      const { container: newContainer } = renderWithProviders(<Dashboard />)
 
       const rerenderedHeading = screen.getByRole('heading', { level: 1 })
       expect(rerenderedHeading).toHaveTextContent('AI ToDo MCP')
@@ -279,17 +280,17 @@ describe('Dashboard Component', () => {
 
   describe('Performance Considerations', () => {
     it('should not cause memory leaks', () => {
-      const { unmount } = render(<Dashboard />)
-      
+      const { unmount } = renderWithProviders(<Dashboard />)
+
       // Verify component unmounts cleanly
       expect(() => unmount()).not.toThrow()
     })
 
     it('should render efficiently', () => {
       const startTime = performance.now()
-      render(<Dashboard />)
+      renderWithProviders(<Dashboard />)
       const endTime = performance.now()
-      
+
       // Component should render quickly (less than 100ms)
       expect(endTime - startTime).toBeLessThan(100)
     })

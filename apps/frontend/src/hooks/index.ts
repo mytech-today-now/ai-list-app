@@ -42,6 +42,16 @@ export {
   type MCPEventHandler
 } from './useMCPSubscription';
 
+// MCP Navigation Hooks
+export {
+  useMCPNavigation,
+  useMCPRouter,
+  useMCPHistory,
+  type MCPNavigationOptions,
+  type MCPNavigationState,
+  type MCPRouteHandler
+} from './useMCPNavigation';
+
 // Re-export shared types for convenience
 export type {
   MCPCommand,

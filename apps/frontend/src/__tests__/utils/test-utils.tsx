@@ -4,6 +4,31 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 
+// Mock MCP Context for testing
+const MockMCPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const mockContextValue = {
+    engine: null,
+    isInitialized: true,
+    currentSession: null,
+    activeAgent: null,
+    executeCommand: vi.fn().mockResolvedValue({ success: true }),
+    tools: [],
+    resources: [],
+    prompts: [],
+    generateAIContext: vi.fn().mockReturnValue('Mock AI context'),
+    isConnected: true,
+    lastActivity: new Date().toISOString(),
+    lastError: null,
+    clearError: vi.fn(),
+  }
+
+  return (
+    <div data-testid="mock-mcp-provider">
+      {children}
+    </div>
+  )
+}
+
 // Mock data generators
 export const mockUser = {
   id: '1',
@@ -64,9 +89,11 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          {children}
-        </BrowserRouter>
+        <MockMCPProvider>
+          <BrowserRouter>
+            {children}
+          </BrowserRouter>
+        </MockMCPProvider>
       </QueryClientProvider>
     )
   }

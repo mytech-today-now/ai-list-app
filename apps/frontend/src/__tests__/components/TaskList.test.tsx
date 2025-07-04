@@ -1,10 +1,12 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { axe, toHaveNoViolations } from 'jest-axe'
+import { vi } from 'vitest'
 import TaskList from '../../components/TaskList'
 import { TodoList, TodoItem } from '@ai-todo/shared-types'
+import { renderWithProviders } from '../utils/test-utils'
 
 // Extend expect with jest-axe matchers
 expect.extend(toHaveNoViolations)
@@ -87,15 +89,14 @@ describe('TaskList Component', () => {
   })
 
   const renderTaskList = (props = {}) => {
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <TaskList
-          listId="list-1"
-          onItemClick={mockOnItemClick}
-          onItemUpdate={mockOnItemUpdate}
-          {...props}
-        />
-      </QueryClientProvider>
+    return renderWithProviders(
+      <TaskList
+        listId="list-1"
+        onItemClick={mockOnItemClick}
+        onItemUpdate={mockOnItemUpdate}
+        {...props}
+      />,
+      { queryClient }
     )
   }
 
@@ -161,6 +162,50 @@ describe('TaskList Component', () => {
       await waitFor(() => {
         const errorContainer = screen.getByText('Error loading task list').parentElement
         expect(errorContainer).toHaveClass('p-4', 'bg-red-100', 'border', 'border-red-400', 'text-red-700', 'rounded')
+      })
+    })
+
+    it('should handle malformed API responses gracefully', async () => {
+      ;(fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ data: mockList })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: "not an array" })
+        })
+
+      renderTaskList()
+
+      await waitFor(() => {
+        expect(screen.getByText('No items found')).toBeInTheDocument()
+      })
+    })
+
+    it('should handle API responses with invalid item structure', async () => {
+      const invalidItems = [
+        { id: 'valid-1', title: 'Valid Item', status: 'pending', priority: 'medium', listId: 'list-1' },
+        { id: 'invalid-1', title: null, status: 'invalid' }, // Invalid item
+        { not_an_item: true } // Completely invalid
+      ]
+
+      ;(fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ data: mockList })
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ success: true, data: invalidItems })
+        })
+
+      renderTaskList()
+
+      await waitFor(() => {
+        // Should only show the valid item
+        expect(screen.getByText('Valid Item')).toBeInTheDocument()
+        expect(screen.queryByText('invalid-1')).not.toBeInTheDocument()
       })
     })
   })

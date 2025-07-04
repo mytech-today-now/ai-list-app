@@ -34,15 +34,19 @@ router.get('/', async (req, res) => {
       })
     }
 
+    // Ensure items is always an array
+    const safeItems = Array.isArray(items) ? items : []
+
     res.json({
       success: true,
-      data: items,
-      message: `Found ${items.length} items`
+      data: safeItems,
+      message: `Found ${safeItems.length} items`
     })
   } catch (error) {
     console.error('Error fetching items:', error)
     res.status(500).json({
       success: false,
+      data: [], // Always provide empty array as fallback
       error: 'Internal server error',
       message: 'Failed to fetch items'
     })

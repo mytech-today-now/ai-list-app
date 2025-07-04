@@ -8,6 +8,10 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { useSecurity } from '../../contexts/SecurityContext';
 
+// Helper function for environment checks (can be mocked in tests)
+export const isProduction = () => import.meta.env.PROD;
+export const isDevelopment = () => import.meta.env.DEV;
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -72,7 +76,7 @@ class ErrorBoundaryClass extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     };
 
     // Send to logging service
-    if (import.meta.env.PROD) {
+    if (isProduction()) {
       fetch('/api/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -183,9 +187,13 @@ const ErrorFallbackUI: React.FC<ErrorFallbackUIProps> = ({
   };
 
   return (
-    <div className={`flex flex-col items-center justify-center p-8 text-center ${
-      level === 'page' ? 'min-h-screen' : level === 'section' ? 'min-h-64' : 'min-h-32'
-    }`}>
+    <div
+      role="alert"
+      aria-live="assertive"
+      className={`flex flex-col items-center justify-center p-8 text-center ${
+        level === 'page' ? 'min-h-screen' : level === 'section' ? 'min-h-64' : 'min-h-32'
+      }`}
+    >
       <div className="mb-4">
         {getErrorIcon()}
       </div>
@@ -200,7 +208,7 @@ const ErrorFallbackUI: React.FC<ErrorFallbackUIProps> = ({
         We apologize for the inconvenience. The error has been reported and we're working to fix it.
       </p>
 
-      {errorId && (
+      {showDetails && errorId && (
         <p className="text-sm text-gray-500 mb-4">
           Error ID: <code className="bg-gray-100 px-2 py-1 rounded">{errorId}</code>
         </p>
@@ -217,16 +225,18 @@ const ErrorFallbackUI: React.FC<ErrorFallbackUIProps> = ({
           </button>
         )}
         
-        <button
-          type="button"
-          onClick={onReload}
-          className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-        >
-          Reload Page
-        </button>
+        {level === 'page' && (
+          <button
+            type="button"
+            onClick={onReload}
+            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          >
+            Reload Page
+          </button>
+        )}
       </div>
 
-      {(showDetails || import.meta.env.DEV) && (
+      {showDetails && (
         <div className="w-full max-w-2xl">
           <button
             type="button"
@@ -243,7 +253,7 @@ const ErrorFallbackUI: React.FC<ErrorFallbackUIProps> = ({
                 <pre className="mt-1 text-red-600 whitespace-pre-wrap">{error?.message}</pre>
               </div>
               
-              {error?.stack && (
+              {error?.stack && isDevelopment() && (
                 <div className="mb-3">
                   <strong>Stack Trace:</strong>
                   <pre className="mt-1 text-gray-700 whitespace-pre-wrap text-xs overflow-x-auto">
@@ -276,7 +286,7 @@ export function useErrorHandler() {
     console.error('Error caught by useErrorHandler:', error, errorInfo);
     
     // Report error
-    if (import.meta.env.PROD) {
+    if (isProduction()) {
       fetch('/api/errors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

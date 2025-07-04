@@ -132,6 +132,16 @@ export interface Session {
   metadata?: Record<string, unknown>;
 }
 
+// Event Types for MCP System
+export interface MCPEvent {
+  type: string;
+  data?: Record<string, unknown>;
+  timestamp: string;
+  source?: string;
+  sessionId?: string;
+  agentId?: string;
+}
+
 // API Request/Response Types
 export interface CreateListRequest {
   title: string;

@@ -286,10 +286,11 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(({
   if (!open) return null
   
   const modalContent = (
-    <div 
+    <div
       className={overlayClasses}
       onClick={handleOverlayClick}
       aria-hidden={!open}
+      data-testid="modal-overlay"
     >
       <div
         ref={(node) => {

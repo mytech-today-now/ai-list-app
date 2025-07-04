@@ -7,7 +7,7 @@
 
 // Design tokens
 export * from './tokens'
-export { designTokens as tokens } from './tokens'
+export { designTokens as tokens, designTokens } from './tokens'
 
 // Utilities
 export * from './utils'

@@ -39,7 +39,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:visual": "npm run test:frontend -- --run src/__tests__/visual",
-    "test:visual:update": "npm run test:frontend -- --run src/__tests__/visual --update-snapshots",
+    "test:visual:update": "npm run test:frontend -- --run src/__tests__/visual -u",
     "test:performance": "npm run test:frontend -- --run src/__tests__/performance",
     "test:accessibility": "npm run test:frontend -- --run src/__tests__/accessibility",
     "test:integration": "npm run test:backend -- --testPathPattern=integration",
