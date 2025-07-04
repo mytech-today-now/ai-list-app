@@ -16,7 +16,7 @@ export default {
       }
     }]
   },
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@ai-todo/(.*)$': '<rootDir>/../../packages/$1/src'
   },
@@ -73,13 +73,7 @@ export default {
       statements: 90
     }
   },
-  // Coverage watermarks
-  coverageWatermarks: {
-    statements: [70, 85],
-    functions: [70, 85],
-    branches: [70, 85],
-    lines: [70, 85]
-  },
+
   testTimeout: 10000,
   verbose: true,
   detectOpenHandles: true,

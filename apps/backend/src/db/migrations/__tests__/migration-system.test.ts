@@ -214,7 +214,7 @@ describe('Migration System', () => {
     it('should create and list backups', async () => {
       // Create a test table with data
       db.exec('CREATE TABLE test_backup (id INTEGER, name TEXT);')
-      db.exec('INSERT INTO test_backup VALUES (1, "test");')
+      db.exec("INSERT INTO test_backup VALUES (1, 'test');")
       
       const backup = await rollbackManager.createBackup()
       
@@ -288,7 +288,7 @@ describe('Migration System', () => {
     it('should analyze table performance', async () => {
       // Create test table
       db.exec('CREATE TABLE test_performance (id INTEGER, name TEXT);')
-      db.exec('INSERT INTO test_performance VALUES (1, "test");')
+      db.exec("INSERT INTO test_performance VALUES (1, 'test');")
       
       const metrics = await optimizer.analyzePerformance()
       
@@ -351,7 +351,7 @@ describe('Migration System', () => {
     it('should maintain data integrity during operations', async () => {
       // Create test data
       db.exec('CREATE TABLE integrity_test (id INTEGER PRIMARY KEY, data TEXT);')
-      db.exec('INSERT INTO integrity_test (data) VALUES ("test1"), ("test2");')
+      db.exec("INSERT INTO integrity_test (data) VALUES ('test1'), ('test2');")
       
       const beforeCount = db.prepare('SELECT COUNT(*) as count FROM integrity_test').get() as { count: number }
       

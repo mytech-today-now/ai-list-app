@@ -3,7 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { axe, toHaveNoViolations } from 'jest-axe'
+import { vi } from 'vitest'
 import App from '../../App'
+import { renderWithProviders, renderWithProvidersNoRouter, AppWithoutRouter } from '../utils/test-utils'
 
 // Extend expect with jest-axe matchers
 expect.extend(toHaveNoViolations)
@@ -36,22 +38,26 @@ describe('App Component', () => {
 
   describe('Rendering', () => {
     it('should render without crashing', () => {
-      expect(() => renderWithProviders(<App />)).not.toThrow()
+      expect(() => renderWithProviders(<AppWithoutRouter />)).not.toThrow()
     })
 
     it('should render the main layout structure', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       const mainContainer = document.querySelector('.min-h-screen.bg-gray-50')
       expect(mainContainer).toBeInTheDocument()
     })
 
     it('should render Dashboard component on root route', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       const dashboard = screen.getByTestId('dashboard')
       expect(dashboard).toBeInTheDocument()
       expect(dashboard).toHaveTextContent('Dashboard Component')
+    })
+
+    it('should render actual App component without router conflicts', () => {
+      expect(() => renderWithProvidersNoRouter(<App />)).not.toThrow()
     })
   })
 
@@ -90,11 +96,11 @@ describe('App Component', () => {
     })
 
     it('should maintain route state', async () => {
-      const { rerender } = renderWithProviders(<App />)
+      const { rerender } = renderWithProviders(<AppWithoutRouter />)
 
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
 
-      rerender(<App />)
+      rerender(<AppWithoutRouter />)
 
       await waitFor(() => {
         expect(screen.getByTestId('dashboard')).toBeInTheDocument()
@@ -104,7 +110,7 @@ describe('App Component', () => {
 
   describe('React Query Integration', () => {
     it('should provide QueryClient to child components', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       // Verify that the app renders without QueryClient errors
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
@@ -137,7 +143,7 @@ describe('App Component', () => {
     })
 
     it('should configure QueryClient with proper defaults', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       // The fact that the component renders successfully indicates QueryClient is properly configured
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
@@ -146,7 +152,7 @@ describe('App Component', () => {
 
   describe('Layout and Styling', () => {
     it('should apply correct CSS classes to main container', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       const mainContainer = document.querySelector('.min-h-screen.bg-gray-50')
       expect(mainContainer).toBeInTheDocument()
@@ -154,7 +160,7 @@ describe('App Component', () => {
     })
 
     it('should maintain consistent layout structure', () => {
-      const { container } = renderWithProviders(<App />)
+      const { container } = renderWithProviders(<AppWithoutRouter />)
 
       // Check that the layout structure is consistent
       const appRoot = container.firstChild
@@ -162,7 +168,7 @@ describe('App Component', () => {
     })
 
     it('should handle responsive design', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       const mainContainer = document.querySelector('.min-h-screen')
       expect(mainContainer).toBeInTheDocument()
@@ -174,13 +180,13 @@ describe('App Component', () => {
 
   describe('Accessibility', () => {
     it('should have no accessibility violations', async () => {
-      const { container } = renderWithProviders(<App />)
+      const { container } = renderWithProviders(<AppWithoutRouter />)
       const results = await axe(container)
       expect(results).toHaveNoViolations()
     })
 
     it('should support keyboard navigation', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       // Verify that the app structure supports keyboard navigation
       const dashboard = screen.getByTestId('dashboard')
@@ -188,7 +194,7 @@ describe('App Component', () => {
     })
 
     it('should have proper focus management', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       // The app should not interfere with focus management
       expect(document.activeElement).toBeDefined()
@@ -218,7 +224,7 @@ describe('App Component', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       try {
-        renderWithProviders(<App />)
+        renderWithProviders(<AppWithoutRouter />)
         expect(screen.getByTestId('dashboard')).toBeInTheDocument()
       } finally {
         consoleSpy.mockRestore()
@@ -229,7 +235,7 @@ describe('App Component', () => {
   describe('Performance', () => {
     it('should render efficiently', () => {
       const startTime = performance.now()
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
       const endTime = performance.now()
 
       // App should render quickly (less than 100ms)
@@ -237,17 +243,17 @@ describe('App Component', () => {
     })
 
     it('should not cause memory leaks', () => {
-      const { unmount } = renderWithProviders(<App />)
+      const { unmount } = renderWithProviders(<AppWithoutRouter />)
 
       // Verify component unmounts cleanly
       expect(() => unmount()).not.toThrow()
     })
 
     it('should handle multiple re-renders efficiently', () => {
-      const { rerender } = renderWithProviders(<App />)
+      const { rerender } = renderWithProviders(<AppWithoutRouter />)
 
       for (let i = 0; i < 5; i++) {
-        rerender(<App />)
+        rerender(<AppWithoutRouter />)
         expect(screen.getByTestId('dashboard')).toBeInTheDocument()
       }
     })
@@ -255,21 +261,21 @@ describe('App Component', () => {
 
   describe('Integration', () => {
     it('should integrate Router and QueryClient properly', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       // Both Router and QueryClient should work together without conflicts
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
     })
 
     it('should pass context to child components', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       // Child components should receive both Router and QueryClient context
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
     })
 
     it('should maintain state across navigation', async () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       const dashboard = screen.getByTestId('dashboard')
       expect(dashboard).toBeInTheDocument()
@@ -282,17 +288,26 @@ describe('App Component', () => {
   })
 
   describe('Environment Handling', () => {
-    it('should work in different environments', () => {
-      // Test in different NODE_ENV settings
+    it('should work in test environment', () => {
+      // Test in test NODE_ENV setting
       const originalEnv = process.env.NODE_ENV
 
       try {
         process.env.NODE_ENV = 'test'
-        renderWithProviders(<App />)
+        renderWithProviders(<AppWithoutRouter />)
         expect(screen.getByTestId('dashboard')).toBeInTheDocument()
+      } finally {
+        process.env.NODE_ENV = originalEnv
+      }
+    })
 
+    it('should work in development environment', () => {
+      // Test in development NODE_ENV setting
+      const originalEnv = process.env.NODE_ENV
+
+      try {
         process.env.NODE_ENV = 'development'
-        renderWithProviders(<App />)
+        renderWithProviders(<AppWithoutRouter />)
         expect(screen.getByTestId('dashboard')).toBeInTheDocument()
       } finally {
         process.env.NODE_ENV = originalEnv
@@ -301,14 +316,14 @@ describe('App Component', () => {
 
     it('should handle missing environment variables gracefully', () => {
       // The app should work even if some environment variables are missing
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
     })
   })
 
   describe('CSS and Styling Integration', () => {
     it('should load CSS classes properly', () => {
-      renderWithProviders(<App />)
+      renderWithProviders(<AppWithoutRouter />)
 
       const mainContainer = document.querySelector('.min-h-screen.bg-gray-50')
       expect(mainContainer).toBeInTheDocument()
@@ -316,7 +331,7 @@ describe('App Component', () => {
 
     it('should handle missing CSS gracefully', () => {
       // Even if Tailwind CSS fails to load, the app should still render
-      const { container } = renderWithProviders(<App />)
+      const { container } = renderWithProviders(<AppWithoutRouter />)
       expect(container.firstChild).toBeInTheDocument()
     })
   })

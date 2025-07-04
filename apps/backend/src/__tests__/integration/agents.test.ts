@@ -13,6 +13,7 @@ jest.mock('../../db/services', () => ({
     findById: jest.fn(),
     getActivitySummary: jest.fn(),
     create: jest.fn(),
+    createWithApiKey: jest.fn(),
     updateById: jest.fn(),
     deleteById: jest.fn(),
     updateLastActive: jest.fn()
@@ -257,11 +258,11 @@ describe('Agents API Integration Tests', () => {
         status: 'active',
         permissions: JSON.stringify(['create', 'update']),
         configuration: JSON.stringify({ model: 'gpt-4', temperature: 0.7 }),
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
       
-      ;(agentsService.create as jest.Mock).mockResolvedValue(createdAgent)
+      ;(agentsService.createWithApiKey as jest.Mock).mockResolvedValue(createdAgent)
 
       const response = await request(app)
         .post('/api/agents')
@@ -273,14 +274,15 @@ describe('Agents API Integration Tests', () => {
         data: createdAgent,
         message: 'Agent created successfully'
       })
-      
-      expect(agentsService.create).toHaveBeenCalledWith(
+
+      expect(agentsService.createWithApiKey).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'New Agent',
           role: 'executor',
           status: 'active',
           permissions: JSON.stringify(['create', 'update']),
-          configuration: JSON.stringify({ model: 'gpt-4', temperature: 0.7 })
+          configuration: JSON.stringify({ model: 'gpt-4', temperature: 0.7 }),
+          apiKey: 'secret-api-key'
         })
       )
     })

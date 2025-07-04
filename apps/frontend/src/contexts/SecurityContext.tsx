@@ -146,7 +146,7 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({
   };
 
   // Enhanced form validation with security checks
-  const secureValidateForm = <T>(
+  const secureValidateForm = <T,>(
     data: unknown, 
     schema: z.ZodSchema<T>
   ): { success: boolean; data?: T; errors?: string[] } => {

@@ -24,6 +24,10 @@ import { getDb, withDbTransaction } from '../connection'
 export class TestDataFactory {
   private static counter = 0
 
+  static reset() {
+    this.counter = 0
+  }
+
   static createTestList(overrides: any = {}) {
     return {
       id: `test-list-${++this.counter}`,
@@ -140,18 +144,34 @@ export class RepositoryTestUtils {
    * Create isolated test database
    */
   static async createTestDatabase(): Promise<any> {
-    // In a real implementation, this would create an isolated test database
-    // For now, we'll use the existing connection with transaction rollback
-    return await getDb()
+    // In test environment, return the mocked database
+    try {
+      const { getDb } = await import('../connection')
+      return await getDb()
+    } catch (error) {
+      // If import fails, return a mock database
+      return {
+        select: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        insert: jest.fn().mockReturnThis(),
+        values: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        delete: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue([]),
+        returning: jest.fn().mockReturnThis(),
+        transaction: jest.fn().mockImplementation((fn) => fn(this))
+      }
+    }
   }
 
   /**
    * Clean up test database
    */
   static async cleanupTestDatabase(): Promise<void> {
-    // Clean up test data
-    const db = await getDb()
-    // In a real implementation, this would clean up test-specific data
+    // In test environment, no cleanup needed for mocked database
+    return Promise.resolve()
   }
 
   /**
@@ -217,6 +237,20 @@ export abstract class BaseRepositoryTestSuite<TRepository extends BaseService<an
 
   afterEach() {
     this.testData = []
+  }
+
+  /**
+   * Setup method to be called in test beforeEach
+   */
+  setup() {
+    this.beforeEach()
+  }
+
+  /**
+   * Cleanup method to be called in test afterEach
+   */
+  cleanup() {
+    this.afterEach()
   }
 
   /**

@@ -255,7 +255,13 @@ export class RollbackManager {
     const db = (this.migrationManager as any).db
     
     // Execute backup SQL
-    await db.execute(sql.raw(backupSql))
+    const isPostgres = (this.migrationManager as any).isPostgres
+    if (isPostgres) {
+      await db.execute(sql.raw(backupSql))
+    } else {
+      const connection = (this.migrationManager as any).connection
+      connection.exec(backupSql)
+    }
     
     console.log('✅ Backup restored successfully')
   }
@@ -331,7 +337,12 @@ export class RollbackManager {
 
       // Execute rollback SQL
       if (migration.down) {
-        await db.execute(sql.raw(migration.down))
+        if (isPostgres) {
+          await db.execute(sql.raw(migration.down))
+        } else {
+          const connection = (this.migrationManager as any).connection
+          connection.exec(migration.down)
+        }
       }
 
       // Record rollback
@@ -364,15 +375,20 @@ export class RollbackManager {
     const db = (this.migrationManager as any).db
     const isPostgres = (this.migrationManager as any).isPostgres
     const timestamp = isPostgres ? 'NOW()' : 'unixepoch()'
-    
-    await db.execute(sql.raw(`
+    const insertSql = `
       INSERT INTO __migration_rollbacks__ (migration_id, rolled_back_at, rollback_reason)
       VALUES ('${migrationId}', ${timestamp}, '${reason}')
-    `))
-    
-    await db.execute(sql.raw(`
-      DELETE FROM __migrations__ WHERE id = '${migrationId}'
-    `))
+    `
+    const deleteSql = `DELETE FROM __migrations__ WHERE id = '${migrationId}'`
+
+    if (isPostgres) {
+      await db.execute(sql.raw(insertSql))
+      await db.execute(sql.raw(deleteSql))
+    } else {
+      const connection = (this.migrationManager as any).connection
+      connection.exec(insertSql)
+      connection.exec(deleteSql)
+    }
   }
 
   /**
@@ -384,18 +400,19 @@ export class RollbackManager {
     
     if (isPostgres) {
       const result = await db.execute(sql`
-        SELECT tablename FROM pg_tables 
-        WHERE schemaname = 'public' 
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public'
         AND tablename NOT LIKE '__migration%'
       `)
       return result.map((row: any) => row.tablename)
     } else {
-      const result = await db.execute(sql`
-        SELECT name FROM sqlite_master 
-        WHERE type = 'table' 
+      const connection = (this.migrationManager as any).connection
+      const result = connection.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type = 'table'
         AND name NOT LIKE '__migration%'
         AND name NOT LIKE 'sqlite_%'
-      `)
+      `).all()
       return result.map((row: any) => row.name)
     }
   }
@@ -405,9 +422,16 @@ export class RollbackManager {
    */
   private async exportTableData(tableName: string): Promise<string> {
     const db = (this.migrationManager as any).db
-    
+    const isPostgres = (this.migrationManager as any).isPostgres
+
     try {
-      const result = await db.execute(sql.raw(`SELECT * FROM ${tableName}`))
+      let result: any[]
+      if (isPostgres) {
+        result = await db.execute(sql.raw(`SELECT * FROM ${tableName}`))
+      } else {
+        const connection = (this.migrationManager as any).connection
+        result = connection.prepare(`SELECT * FROM ${tableName}`).all()
+      }
       
       if (result.length === 0) {
         return `-- Table ${tableName} is empty`

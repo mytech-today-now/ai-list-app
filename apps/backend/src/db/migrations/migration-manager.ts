@@ -153,8 +153,15 @@ export class MigrationManager {
       );
     `
 
-    await this.db.execute(sql.raw(createMigrationsTable))
-    await this.db.execute(sql.raw(createRollbackTable))
+    if (this.isPostgres) {
+      await this.db.execute(sql.raw(createMigrationsTable))
+      await this.db.execute(sql.raw(createRollbackTable))
+    } else {
+      // For SQLite, use the raw connection
+      const connection = this.connection as Database
+      connection.exec(createMigrationsTable)
+      connection.exec(createRollbackTable)
+    }
   }
 
   /**
@@ -303,10 +310,16 @@ export class MigrationManager {
    */
   private async getAppliedMigrations(): Promise<MigrationRecord[]> {
     try {
-      const result = await this.db.execute(sql`
-        SELECT * FROM __migrations__ 
-        ORDER BY version ASC
-      `)
+      let result: any[]
+      if (this.isPostgres) {
+        result = await this.db.execute(sql`
+          SELECT * FROM __migrations__
+          ORDER BY version ASC
+        `)
+      } else {
+        const connection = this.connection as Database
+        result = connection.prepare('SELECT * FROM __migrations__ ORDER BY version ASC').all()
+      }
       
       return result.map((row: any) => ({
         id: row.id,
@@ -349,7 +362,11 @@ export class MigrationManager {
       // Execute migration SQL
       const migrationSql = isRollback ? migration.down : migration.up
       if (migrationSql) {
-        await this.db.execute(sql.raw(migrationSql))
+        if (this.isPostgres) {
+          await this.db.execute(sql.raw(migrationSql))
+        } else {
+          (this.connection as Database).exec(migrationSql)
+        }
       }
 
       // Record migration
@@ -398,21 +415,26 @@ export class MigrationManager {
    */
   private async recordMigration(record: MigrationRecord): Promise<void> {
     const timestamp = this.isPostgres ? 'NOW()' : 'unixepoch()'
-    
-    await this.db.execute(sql.raw(`
+    const insertSql = `
       INSERT INTO __migrations__ (
         id, name, version, applied_at, checksum, execution_time, rollback_safe, rollback_data
       ) VALUES (
-        '${record.id}', 
-        '${record.name}', 
-        ${record.version}, 
-        ${timestamp}, 
-        '${record.checksum}', 
-        ${record.executionTime}, 
-        ${this.isPostgres ? record.rollbackSafe : (record.rollbackSafe ? 1 : 0)}, 
+        '${record.id}',
+        '${record.name}',
+        ${record.version},
+        ${timestamp},
+        '${record.checksum}',
+        ${record.executionTime},
+        ${this.isPostgres ? record.rollbackSafe : (record.rollbackSafe ? 1 : 0)},
         ${record.rollbackData ? `'${record.rollbackData}'` : 'NULL'}
       )
-    `))
+    `
+
+    if (this.isPostgres) {
+      await this.db.execute(sql.raw(insertSql))
+    } else {
+      (this.connection as Database).exec(insertSql)
+    }
   }
 
   /**
@@ -420,14 +442,19 @@ export class MigrationManager {
    */
   private async recordRollback(migrationId: string, reason: string): Promise<void> {
     const timestamp = this.isPostgres ? 'NOW()' : 'unixepoch()'
-    
-    await this.db.execute(sql.raw(`
+    const insertSql = `
       INSERT INTO __migration_rollbacks__ (migration_id, rolled_back_at, rollback_reason)
       VALUES ('${migrationId}', ${timestamp}, '${reason}')
-    `))
-    
-    await this.db.execute(sql.raw(`
-      DELETE FROM __migrations__ WHERE id = '${migrationId}'
-    `))
+    `
+    const deleteSql = `DELETE FROM __migrations__ WHERE id = '${migrationId}'`
+
+    if (this.isPostgres) {
+      await this.db.execute(sql.raw(insertSql))
+      await this.db.execute(sql.raw(deleteSql))
+    } else {
+      const connection = this.connection as Database
+      connection.exec(insertSql)
+      connection.exec(deleteSql)
+    }
   }
 }

@@ -220,8 +220,8 @@ describe('Lists API Integration Tests', () => {
         ...newListData,
         status: 'active',
         createdBy: 'user',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
       
       ;(listsService.create as jest.Mock).mockResolvedValue(createdList)

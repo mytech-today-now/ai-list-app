@@ -172,7 +172,8 @@ describe('Items API Integration Tests', () => {
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to fetch items'
+        message: 'Failed to fetch items',
+        data: []
       })
     })
   })
@@ -270,8 +271,8 @@ describe('Items API Integration Tests', () => {
         status: 'pending',
         position: 0,
         createdBy: 'user',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
       
       ;(itemsService.create as jest.Mock).mockResolvedValue(createdItem)

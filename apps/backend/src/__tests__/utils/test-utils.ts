@@ -62,10 +62,101 @@ export const createTestDatabase = () => {
     get: jest.fn().mockResolvedValue(null),
     all: jest.fn().mockResolvedValue([]),
     run: jest.fn().mockResolvedValue({ changes: 1, lastInsertRowid: 1 }),
+    returning: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    innerJoin: jest.fn().mockReturnThis(),
+    rightJoin: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    having: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    offset: jest.fn().mockReturnThis(),
     transaction: jest.fn().mockImplementation((fn) => fn(mockDb)),
+    $with: jest.fn().mockReturnThis(),
+    with: jest.fn().mockReturnThis()
   }
-  
+
   return mockDb
+}
+
+// Enhanced database testing utilities
+export const createMockRepository = <T>(entityName: string) => {
+  const mockDb = createTestDatabase()
+
+  return {
+    // Basic CRUD operations
+    create: jest.fn().mockResolvedValue({ id: 'test-id', ...createTestEntity(entityName) }),
+    findById: jest.fn().mockResolvedValue({ id: 'test-id', ...createTestEntity(entityName) }),
+    findAll: jest.fn().mockResolvedValue([{ id: 'test-id', ...createTestEntity(entityName) }]),
+    updateById: jest.fn().mockResolvedValue({ id: 'test-id', ...createTestEntity(entityName) }),
+    deleteById: jest.fn().mockResolvedValue(true),
+    count: jest.fn().mockResolvedValue(1),
+
+    // Query operations
+    findWhere: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+
+    // Database instance
+    getDb: jest.fn().mockResolvedValue(mockDb),
+
+    // MCP operations
+    getMCPTools: jest.fn().mockReturnValue([]),
+    getMCPResources: jest.fn().mockReturnValue([]),
+    executeMCPTool: jest.fn().mockResolvedValue({ success: true, data: {} }),
+    getMCPResource: jest.fn().mockResolvedValue({ success: true, data: {} }),
+
+    // Statistics
+    getEntityStatistics: jest.fn().mockResolvedValue({
+      total: 1,
+      active: 1,
+      completed: 0,
+      completionRate: 0
+    })
+  }
+}
+
+// Create test entities for different types
+export const createTestEntity = (entityType: string, overrides: any = {}) => {
+  const baseEntity = {
+    id: `test-${entityType}-${Date.now()}`,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides
+  }
+
+  switch (entityType.toLowerCase()) {
+    case 'list':
+      return {
+        ...baseEntity,
+        title: 'Test List',
+        description: 'Test list description',
+        status: 'active',
+        priority: 'medium',
+        parentListId: null,
+        position: 0,
+        metadata: {},
+        ...overrides
+      }
+
+    case 'item':
+      return {
+        ...baseEntity,
+        title: 'Test Item',
+        description: 'Test item description',
+        status: 'pending',
+        priority: 'medium',
+        listId: 'test-list-id',
+        assigneeId: null,
+        dueDate: null,
+        estimatedDuration: null,
+        actualDuration: null,
+        metadata: {},
+        ...overrides
+      }
+
+    default:
+      return baseEntity
+  }
 }
 
 // API testing utilities

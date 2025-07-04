@@ -67,45 +67,58 @@ export enum Permission {
 }
 
 /**
+ * Base permissions for each role
+ */
+const GUEST_PERMISSIONS = [
+  Permission.LIST_READ,
+  Permission.ITEM_READ
+];
+
+const USER_PERMISSIONS = [
+  Permission.LIST_CREATE,
+  Permission.LIST_READ,
+  Permission.LIST_UPDATE,
+  Permission.LIST_DELETE,
+  Permission.ITEM_CREATE,
+  Permission.ITEM_READ,
+  Permission.ITEM_UPDATE,
+  Permission.ITEM_DELETE,
+  Permission.USER_READ,
+  Permission.USER_UPDATE,
+  Permission.MCP_EXECUTE
+];
+
+const MODERATOR_PERMISSIONS = [
+  ...USER_PERMISSIONS,
+  Permission.LIST_SHARE,
+  Permission.ITEM_ASSIGN,
+  Permission.USER_DELETE,
+  Permission.MCP_TOOLS
+];
+
+const ADMIN_PERMISSIONS = [
+  ...MODERATOR_PERMISSIONS,
+  Permission.USER_MANAGE_ROLES,
+  Permission.SYSTEM_CONFIG,
+  Permission.SYSTEM_LOGS,
+  Permission.MCP_ADMIN,
+  Permission.MCP_RESOURCES
+];
+
+const SUPER_ADMIN_PERMISSIONS = [
+  ...ADMIN_PERMISSIONS,
+  Permission.SYSTEM_BACKUP
+];
+
+/**
  * Role permission mapping
  */
-const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.GUEST]: [
-    Permission.LIST_READ,
-    Permission.ITEM_READ
-  ],
-  [UserRole.USER]: [
-    Permission.LIST_CREATE,
-    Permission.LIST_READ,
-    Permission.LIST_UPDATE,
-    Permission.LIST_DELETE,
-    Permission.ITEM_CREATE,
-    Permission.ITEM_READ,
-    Permission.ITEM_UPDATE,
-    Permission.ITEM_DELETE,
-    Permission.USER_READ,
-    Permission.USER_UPDATE,
-    Permission.MCP_EXECUTE
-  ],
-  [UserRole.MODERATOR]: [
-    ...ROLE_PERMISSIONS[UserRole.USER],
-    Permission.LIST_SHARE,
-    Permission.ITEM_ASSIGN,
-    Permission.USER_DELETE,
-    Permission.MCP_TOOLS
-  ],
-  [UserRole.ADMIN]: [
-    ...ROLE_PERMISSIONS[UserRole.MODERATOR],
-    Permission.USER_MANAGE_ROLES,
-    Permission.SYSTEM_CONFIG,
-    Permission.SYSTEM_LOGS,
-    Permission.MCP_ADMIN,
-    Permission.MCP_RESOURCES
-  ],
-  [UserRole.SUPER_ADMIN]: [
-    ...ROLE_PERMISSIONS[UserRole.ADMIN],
-    Permission.SYSTEM_BACKUP
-  ]
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.GUEST]: GUEST_PERMISSIONS,
+  [UserRole.USER]: USER_PERMISSIONS,
+  [UserRole.MODERATOR]: MODERATOR_PERMISSIONS,
+  [UserRole.ADMIN]: ADMIN_PERMISSIONS,
+  [UserRole.SUPER_ADMIN]: SUPER_ADMIN_PERMISSIONS
 };
 
 /**

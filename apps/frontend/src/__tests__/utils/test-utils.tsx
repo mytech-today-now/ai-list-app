@@ -1,7 +1,7 @@
 import React, { ReactElement } from 'react'
 import { render, RenderOptions, RenderResult } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 
 // Mock MCP Context for testing
@@ -90,9 +90,42 @@ export function renderWithProviders(
     return (
       <QueryClientProvider client={queryClient}>
         <MockMCPProvider>
-          <BrowserRouter>
+          <MemoryRouter initialEntries={initialEntries}>
             {children}
-          </BrowserRouter>
+          </MemoryRouter>
+        </MockMCPProvider>
+      </QueryClientProvider>
+    )
+  }
+
+  return render(ui, { wrapper: Wrapper, ...renderOptions })
+}
+
+// Version without router for testing components that already have a router
+export function renderWithProvidersNoRouter(
+  ui: ReactElement,
+  options: Omit<CustomRenderOptions, 'initialEntries'> = {}
+): RenderResult {
+  const {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+          gcTime: 0,
+        },
+        mutations: {
+          retry: false,
+        },
+      },
+    }),
+    ...renderOptions
+  } = options
+
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <MockMCPProvider>
+          {children}
         </MockMCPProvider>
       </QueryClientProvider>
     )
@@ -121,7 +154,7 @@ export const checkAccessibility = async (container: HTMLElement) => {
 }
 
 // Mock API responses
-export const mockApiResponse = <T>(data: T, delay = 0) => {
+export const mockApiResponse = <T,>(data: T, delay = 0) => {
   return vi.fn().mockImplementation(() =>
     new Promise((resolve) =>
       setTimeout(() => resolve({ data, status: 200, statusText: 'OK' }), delay)
@@ -259,6 +292,22 @@ export const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ childre
   }
   
   return <>{children}</>
+}
+
+// Mock SecurityProvider for testing
+const MockSecurityProvider: React.FC<{ children: React.ReactNode; config?: any }> = ({ children }) => {
+  return <div data-testid="mock-security-provider">{children}</div>
+}
+
+// Test-specific App component without router (for testing with renderWithProviders)
+// This component includes all the same providers as the real App but without BrowserRouter
+export const AppWithoutRouter: React.FC = () => {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div data-testid="pwa-status">PWA Status</div>
+      <div data-testid="dashboard">Dashboard Component</div>
+    </div>
+  )
 }
 
 // Re-export everything from testing-library

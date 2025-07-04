@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { pgTable, varchar, timestamp, pgEnum, jsonb } from 'drizzle-orm/pg-core'
-import { listsTableSqlite, listsTablePg } from './lists'
+import { listsTableSqlite, listsTablePg, priorityEnum } from './lists'
 
 // SQLite Schema
 export const itemsTableSqlite = sqliteTable('items', {

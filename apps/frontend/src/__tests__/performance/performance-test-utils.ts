@@ -4,6 +4,7 @@
  * @version 1.0.0
  */
 
+import React from 'react';
 import { render, RenderResult } from '@testing-library/react';
 import { act } from 'react-dom/test-utils';
 
@@ -128,7 +129,7 @@ export class PerformanceTester {
       const endRender = this.renderTracker.startRender();
       
       await act(async () => {
-        renderResult = render(<Component {...props} />);
+        renderResult = render(React.createElement(Component, props));
       });
       
       const renderTime = endRender();
