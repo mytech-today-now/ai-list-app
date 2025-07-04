@@ -328,4 +328,109 @@ router.get('/:id/activity', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/agents/:id/permissions
+ * Update agent permissions
+ */
+router.post('/:id/permissions', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { permissions } = req.body
+
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'Permissions must be an array'
+      })
+    }
+
+    const updatedAgent = await agentsService.updateById(id, {
+      permissions: JSON.stringify(permissions),
+      updatedAt: new Date()
+    })
+
+    if (!updatedAgent) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: 'Agent not found'
+      })
+    }
+
+    // Remove sensitive data from response
+    const safeAgent = { ...updatedAgent, apiKeyHash: undefined }
+
+    res.json({
+      success: true,
+      data: safeAgent,
+      message: 'Agent permissions updated successfully'
+    })
+  } catch (error) {
+    console.error('Error updating agent permissions:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to update agent permissions'
+    })
+  }
+})
+
+/**
+ * POST /api/agents/:id/verify-key
+ * Verify agent API key
+ */
+router.post('/:id/verify-key', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { apiKey } = req.body
+
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'API key is required'
+      })
+    }
+
+    const isValid = await agentsService.verifyApiKey(id, apiKey)
+
+    res.json({
+      success: true,
+      data: { valid: isValid },
+      message: isValid ? 'API key is valid' : 'API key is invalid'
+    })
+  } catch (error) {
+    console.error('Error verifying API key:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to verify API key'
+    })
+  }
+})
+
+/**
+ * GET /api/agents/stats
+ * Get agent statistics
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const stats = await agentsService.getAgentStats()
+
+    res.json({
+      success: true,
+      data: stats,
+      message: 'Agent statistics retrieved'
+    })
+  } catch (error) {
+    console.error('Error fetching agent stats:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to fetch agent statistics'
+    })
+  }
+})
+
 export default router

@@ -20,7 +20,13 @@ jest.mock('../../db/services', () => ({
     deleteById: jest.fn(),
     reorder: jest.fn(),
     markCompleted: jest.fn(),
-    getStats: jest.fn()
+    markInProgress: jest.fn(),
+    canStart: jest.fn(),
+    moveToList: jest.fn(),
+    search: jest.fn(),
+    getStats: jest.fn(),
+    getGlobalStats: jest.fn(),
+    getListStats: jest.fn()
   }
 }))
 
@@ -398,6 +404,467 @@ describe('Items API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Item not found'
+      })
+    })
+
+    it('should handle database errors during deletion', async () => {
+      ;(itemsService.deleteById as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .delete('/api/items/item-1')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to delete item'
+      })
+    })
+  })
+
+  describe('POST /api/items/:id/complete', () => {
+    it('should mark an item as completed', async () => {
+      const completedItem = {
+        id: 'item-1',
+        title: 'Test Item',
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      }
+
+      ;(itemsService.markCompleted as jest.Mock).mockResolvedValue(completedItem)
+
+      const response = await request(app)
+        .post('/api/items/item-1/complete')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: completedItem,
+        message: 'Item marked as completed'
+      })
+      expect(itemsService.markCompleted).toHaveBeenCalledWith('item-1')
+    })
+
+    it('should return 404 for non-existent item', async () => {
+      ;(itemsService.markCompleted as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/items/nonexistent/complete')
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'Item not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(itemsService.markCompleted as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/items/item-1/complete')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to complete item'
+      })
+    })
+  })
+
+  describe('POST /api/items/:id/start', () => {
+    it('should start an item when dependencies are met', async () => {
+      const startedItem = {
+        id: 'item-1',
+        title: 'Test Item',
+        status: 'in-progress',
+        startedAt: new Date().toISOString()
+      }
+
+      ;(itemsService.canStart as jest.Mock).mockResolvedValue(true)
+      ;(itemsService.markInProgress as jest.Mock).mockResolvedValue(startedItem)
+
+      const response = await request(app)
+        .post('/api/items/item-1/start')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: startedItem,
+        message: 'Item started'
+      })
+      expect(itemsService.canStart).toHaveBeenCalledWith('item-1')
+      expect(itemsService.markInProgress).toHaveBeenCalledWith('item-1')
+    })
+
+    it('should return 400 when dependencies are not met', async () => {
+      ;(itemsService.canStart as jest.Mock).mockResolvedValue(false)
+
+      const response = await request(app)
+        .post('/api/items/item-1/start')
+        .expect(400)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Dependency error',
+        message: 'Cannot start item: dependencies not completed'
+      })
+      expect(itemsService.markInProgress).not.toHaveBeenCalled()
+    })
+
+    it('should return 404 for non-existent item', async () => {
+      ;(itemsService.canStart as jest.Mock).mockResolvedValue(true)
+      ;(itemsService.markInProgress as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/items/nonexistent/start')
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'Item not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(itemsService.canStart as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/items/item-1/start')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to start item'
+      })
+    })
+  })
+
+  describe('POST /api/items/:id/move', () => {
+    it('should move an item to a different list', async () => {
+      const movedItem = {
+        id: 'item-1',
+        title: 'Test Item',
+        listId: 'new-list-id',
+        updatedAt: new Date().toISOString()
+      }
+
+      ;(itemsService.moveToList as jest.Mock).mockResolvedValue(movedItem)
+
+      const response = await request(app)
+        .post('/api/items/item-1/move')
+        .send({ listId: 'new-list-id' })
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: movedItem,
+        message: 'Item moved successfully'
+      })
+      expect(itemsService.moveToList).toHaveBeenCalledWith('item-1', 'new-list-id')
+    })
+
+    it('should return 400 for missing list ID', async () => {
+      const response = await request(app)
+        .post('/api/items/item-1/move')
+        .send({})
+        .expect(400)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Validation error',
+        message: 'List ID is required'
+      })
+      expect(itemsService.moveToList).not.toHaveBeenCalled()
+    })
+
+    it('should return 404 for non-existent item', async () => {
+      ;(itemsService.moveToList as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/items/nonexistent/move')
+        .send({ listId: 'list-1' })
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'Item not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(itemsService.moveToList as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/items/item-1/move')
+        .send({ listId: 'list-1' })
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to move item'
+      })
+    })
+  })
+
+  describe('POST /api/items/:id/duplicate', () => {
+    it('should duplicate an item to the same list', async () => {
+      const originalItem = {
+        id: 'item-1',
+        title: 'Original Item',
+        description: 'Original description',
+        listId: 'list-1',
+        priority: 'medium',
+        dueDate: new Date().toISOString(),
+        estimatedDuration: 60,
+        tags: JSON.stringify(['tag1', 'tag2'])
+      }
+
+      const duplicatedItem = {
+        id: 'item-2',
+        title: 'Original Item (Copy)',
+        description: 'Original description',
+        listId: 'list-1',
+        priority: 'medium',
+        status: 'pending',
+        dueDate: originalItem.dueDate,
+        estimatedDuration: 60,
+        tags: originalItem.tags,
+        createdBy: 'user',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      ;(itemsService.findById as jest.Mock).mockResolvedValue(originalItem)
+      ;(itemsService.create as jest.Mock).mockResolvedValue(duplicatedItem)
+
+      const response = await request(app)
+        .post('/api/items/item-1/duplicate')
+        .expect(201)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: duplicatedItem,
+        message: 'Item duplicated successfully'
+      })
+
+      expect(itemsService.findById).toHaveBeenCalledWith('item-1')
+      expect(itemsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Original Item (Copy)',
+          listId: 'list-1',
+          status: 'pending'
+        })
+      )
+    })
+
+    it('should duplicate an item to a different list', async () => {
+      const originalItem = {
+        id: 'item-1',
+        title: 'Original Item',
+        listId: 'list-1'
+      }
+
+      const duplicatedItem = {
+        id: 'item-2',
+        title: 'Original Item (Copy)',
+        listId: 'list-2'
+      }
+
+      ;(itemsService.findById as jest.Mock).mockResolvedValue(originalItem)
+      ;(itemsService.create as jest.Mock).mockResolvedValue(duplicatedItem)
+
+      await request(app)
+        .post('/api/items/item-1/duplicate')
+        .send({ listId: 'list-2' })
+        .expect(201)
+
+      expect(itemsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          listId: 'list-2'
+        })
+      )
+    })
+
+    it('should return 404 for non-existent item', async () => {
+      ;(itemsService.findById as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/items/nonexistent/duplicate')
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'Item not found'
+      })
+      expect(itemsService.create).not.toHaveBeenCalled()
+    })
+
+    it('should handle database errors', async () => {
+      ;(itemsService.findById as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/items/item-1/duplicate')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to duplicate item'
+      })
+    })
+  })
+
+  describe('GET /api/items/search', () => {
+    it('should search items by query', async () => {
+      const searchResults = [
+        { id: 'item-1', title: 'Test Item 1', description: 'Contains search term' },
+        { id: 'item-2', title: 'Another Test', description: 'Also contains term' }
+      ]
+
+      ;(itemsService.search as jest.Mock).mockResolvedValue(searchResults)
+
+      const response = await request(app)
+        .get('/api/items/search?q=test')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: searchResults,
+        message: 'Found 2 items matching "test"'
+      })
+      expect(itemsService.search).toHaveBeenCalledWith('test', {
+        listId: undefined,
+        status: undefined,
+        limit: 50
+      })
+    })
+
+    it('should search with filters', async () => {
+      const searchResults = []
+      ;(itemsService.search as jest.Mock).mockResolvedValue(searchResults)
+
+      await request(app)
+        .get('/api/items/search?q=test&listId=list-1&status=pending&limit=25')
+        .expect(200)
+
+      expect(itemsService.search).toHaveBeenCalledWith('test', {
+        listId: 'list-1',
+        status: 'pending',
+        limit: 25
+      })
+    })
+
+    it('should return 400 for missing search query', async () => {
+      const response = await request(app)
+        .get('/api/items/search')
+        .expect(400)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Validation error',
+        message: 'Search query (q) is required'
+      })
+      expect(itemsService.search).not.toHaveBeenCalled()
+    })
+
+    it('should return 400 for empty search query', async () => {
+      const response = await request(app)
+        .get('/api/items/search?q=')
+        .expect(400)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Validation error',
+        message: 'Search query (q) is required'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(itemsService.search as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .get('/api/items/search?q=test')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to search items'
+      })
+    })
+  })
+
+  describe('GET /api/items/stats', () => {
+    it('should get global item statistics', async () => {
+      const mockStats = {
+        total: 100,
+        completed: 75,
+        pending: 20,
+        'in-progress': 5,
+        completionRate: 0.75,
+        averageCompletionTime: 3600,
+        priorityDistribution: {
+          high: 10,
+          medium: 60,
+          low: 30
+        }
+      }
+
+      ;(itemsService.getGlobalStats as jest.Mock).mockResolvedValue(mockStats)
+
+      const response = await request(app)
+        .get('/api/items/stats')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: mockStats,
+        message: 'Item statistics retrieved'
+      })
+      expect(itemsService.getGlobalStats).toHaveBeenCalledTimes(1)
+    })
+
+    it('should get list-specific statistics', async () => {
+      const mockStats = {
+        total: 10,
+        completed: 7,
+        pending: 3,
+        completionRate: 0.7
+      }
+
+      ;(itemsService.getListStats as jest.Mock).mockResolvedValue(mockStats)
+
+      const response = await request(app)
+        .get('/api/items/stats?listId=list-1')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: mockStats,
+        message: 'Item statistics retrieved'
+      })
+      expect(itemsService.getListStats).toHaveBeenCalledWith('list-1')
+    })
+
+    it('should handle database errors', async () => {
+      ;(itemsService.getGlobalStats as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .get('/api/items/stats')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to fetch item statistics'
       })
     })
   })

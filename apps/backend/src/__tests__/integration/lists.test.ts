@@ -16,7 +16,9 @@ jest.mock('../../db/services', () => ({
     updateById: jest.fn(),
     deleteById: jest.fn(),
     reorder: jest.fn(),
-    getStats: jest.fn()
+    getStats: jest.fn(),
+    moveToParent: jest.fn(),
+    archive: jest.fn()
   },
   itemsService: {
     findByListId: jest.fn()
@@ -396,6 +398,359 @@ describe('Lists API Integration Tests', () => {
 
       expect(response.body.success).toBe(false)
       expect(response.body.error).toBe('Internal server error')
+    })
+  })
+
+  describe('POST /api/lists/:id/move', () => {
+    it('should move a list to a new parent', async () => {
+      const movedList = {
+        id: 'list-1',
+        title: 'Test List',
+        parentListId: 'new-parent',
+        updatedAt: new Date().toISOString()
+      }
+
+      ;(listsService.moveToParent as jest.Mock).mockResolvedValue(movedList)
+
+      const response = await request(app)
+        .post('/api/lists/list-1/move')
+        .send({ parentId: 'new-parent' })
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: movedList,
+        message: 'List moved successfully'
+      })
+      expect(listsService.moveToParent).toHaveBeenCalledWith('list-1', 'new-parent')
+    })
+
+    it('should move list to root when parentId is null', async () => {
+      const movedList = {
+        id: 'list-1',
+        parentListId: null
+      }
+
+      ;(listsService.moveToParent as jest.Mock).mockResolvedValue(movedList)
+
+      await request(app)
+        .post('/api/lists/list-1/move')
+        .send({ parentId: null })
+        .expect(200)
+
+      expect(listsService.moveToParent).toHaveBeenCalledWith('list-1', null)
+    })
+
+    it('should move list to root when parentId is not provided', async () => {
+      const movedList = {
+        id: 'list-1',
+        parentListId: null
+      }
+
+      ;(listsService.moveToParent as jest.Mock).mockResolvedValue(movedList)
+
+      await request(app)
+        .post('/api/lists/list-1/move')
+        .send({})
+        .expect(200)
+
+      expect(listsService.moveToParent).toHaveBeenCalledWith('list-1', null)
+    })
+
+    it('should return 404 for non-existent list', async () => {
+      ;(listsService.moveToParent as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/lists/nonexistent/move')
+        .send({ parentId: 'parent-1' })
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(listsService.moveToParent as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/lists/list-1/move')
+        .send({ parentId: 'parent-1' })
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Database error'
+      })
+    })
+  })
+
+  describe('POST /api/lists/:id/reorder', () => {
+    it('should reorder a list to a new position', async () => {
+      ;(listsService.reorder as jest.Mock).mockResolvedValue(undefined)
+
+      const response = await request(app)
+        .post('/api/lists/list-1/reorder')
+        .send({ position: 2 })
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        message: 'List reordered successfully'
+      })
+      expect(listsService.reorder).toHaveBeenCalledWith('list-1', 2)
+    })
+
+    it('should return 400 for missing position', async () => {
+      const response = await request(app)
+        .post('/api/lists/list-1/reorder')
+        .send({})
+        .expect(400)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Validation error',
+        message: 'Position must be a number'
+      })
+      expect(listsService.reorder).not.toHaveBeenCalled()
+    })
+
+    it('should return 400 for invalid position type', async () => {
+      const response = await request(app)
+        .post('/api/lists/list-1/reorder')
+        .send({ position: 'invalid' })
+        .expect(400)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Validation error',
+        message: 'Position must be a number'
+      })
+      expect(listsService.reorder).not.toHaveBeenCalled()
+    })
+
+    it('should handle database errors', async () => {
+      ;(listsService.reorder as jest.Mock).mockRejectedValue(new Error('Reorder failed'))
+
+      const response = await request(app)
+        .post('/api/lists/list-1/reorder')
+        .send({ position: 1 })
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Reorder failed'
+      })
+    })
+  })
+
+  describe('POST /api/lists/:id/archive', () => {
+    it('should archive a list', async () => {
+      ;(listsService.archive as jest.Mock).mockResolvedValue(undefined)
+
+      const response = await request(app)
+        .post('/api/lists/list-1/archive')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        message: 'List archived successfully'
+      })
+      expect(listsService.archive).toHaveBeenCalledWith('list-1')
+    })
+
+    it('should handle database errors', async () => {
+      ;(listsService.archive as jest.Mock).mockRejectedValue(new Error('Archive failed'))
+
+      const response = await request(app)
+        .post('/api/lists/list-1/archive')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to archive list'
+      })
+    })
+  })
+
+  describe('POST /api/lists/:id/restore', () => {
+    it('should restore an archived list', async () => {
+      const restoredList = {
+        id: 'list-1',
+        title: 'Test List',
+        status: 'active',
+        updatedAt: new Date().toISOString()
+      }
+
+      ;(listsService.updateById as jest.Mock).mockResolvedValue(restoredList)
+
+      const response = await request(app)
+        .post('/api/lists/list-1/restore')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: restoredList,
+        message: 'List restored successfully'
+      })
+      expect(listsService.updateById).toHaveBeenCalledWith('list-1', {
+        status: 'active',
+        updatedAt: expect.any(Date)
+      })
+    })
+
+    it('should return 404 for non-existent list', async () => {
+      ;(listsService.updateById as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/lists/nonexistent/restore')
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(listsService.updateById as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/lists/list-1/restore')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to restore list'
+      })
+    })
+  })
+
+  describe('POST /api/lists/:id/complete', () => {
+    it('should mark a list as completed', async () => {
+      const completedList = {
+        id: 'list-1',
+        title: 'Test List',
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      ;(listsService.updateById as jest.Mock).mockResolvedValue(completedList)
+
+      const response = await request(app)
+        .post('/api/lists/list-1/complete')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: completedList,
+        message: 'List marked as completed'
+      })
+      expect(listsService.updateById).toHaveBeenCalledWith('list-1', {
+        status: 'completed',
+        completedAt: expect.any(Date),
+        updatedAt: expect.any(Date)
+      })
+    })
+
+    it('should return 404 for non-existent list', async () => {
+      ;(listsService.updateById as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .post('/api/lists/nonexistent/complete')
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(listsService.updateById as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .post('/api/lists/list-1/complete')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to complete list'
+      })
+    })
+  })
+
+  describe('GET /api/lists/:id/stats', () => {
+    it('should get statistics for a list', async () => {
+      const mockStats = {
+        totalItems: 10,
+        completedItems: 7,
+        pendingItems: 3,
+        completionRate: 0.7,
+        averageCompletionTime: 3600,
+        totalTimeSpent: 25200,
+        priorityDistribution: {
+          high: 2,
+          medium: 5,
+          low: 3
+        },
+        statusDistribution: {
+          pending: 3,
+          'in-progress': 0,
+          completed: 7
+        }
+      }
+
+      ;(listsService.getStats as jest.Mock).mockResolvedValue(mockStats)
+
+      const response = await request(app)
+        .get('/api/lists/list-1/stats')
+        .expect(200)
+
+      expect(response.body).toEqual({
+        success: true,
+        data: mockStats,
+        message: 'List statistics retrieved'
+      })
+      expect(listsService.getStats).toHaveBeenCalledWith('list-1')
+    })
+
+    it('should return 404 for non-existent list', async () => {
+      ;(listsService.getStats as jest.Mock).mockResolvedValue(null)
+
+      const response = await request(app)
+        .get('/api/lists/nonexistent/stats')
+        .expect(404)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    })
+
+    it('should handle database errors', async () => {
+      ;(listsService.getStats as jest.Mock).mockRejectedValue(new Error('Database error'))
+
+      const response = await request(app)
+        .get('/api/lists/list-1/stats')
+        .expect(500)
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to fetch list statistics'
+      })
     })
   })
 })

@@ -294,4 +294,109 @@ router.post('/:id/archive', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/lists/:id/restore
+ * Restore an archived list
+ */
+router.post('/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const restoredList = await listsService.updateById(id, {
+      status: 'active',
+      updatedAt: new Date()
+    })
+
+    if (!restoredList) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    }
+
+    res.json({
+      success: true,
+      data: restoredList,
+      message: 'List restored successfully'
+    })
+  } catch (error) {
+    console.error('Error restoring list:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to restore list'
+    })
+  }
+})
+
+/**
+ * POST /api/lists/:id/complete
+ * Mark a list as completed
+ */
+router.post('/:id/complete', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const completedList = await listsService.updateById(id, {
+      status: 'completed',
+      completedAt: new Date(),
+      updatedAt: new Date()
+    })
+
+    if (!completedList) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    }
+
+    res.json({
+      success: true,
+      data: completedList,
+      message: 'List marked as completed'
+    })
+  } catch (error) {
+    console.error('Error completing list:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to complete list'
+    })
+  }
+})
+
+/**
+ * GET /api/lists/:id/stats
+ * Get statistics for a list
+ */
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const stats = await listsService.getStats(id)
+    if (!stats) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: 'List not found'
+      })
+    }
+
+    res.json({
+      success: true,
+      data: stats,
+      message: 'List statistics retrieved'
+    })
+  } catch (error) {
+    console.error('Error fetching list stats:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to fetch list statistics'
+    })
+  }
+})
+
 export default router

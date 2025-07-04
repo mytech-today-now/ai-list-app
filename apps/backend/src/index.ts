@@ -71,6 +71,7 @@ import { dirname } from 'path'
 import listsRouter from './routes/lists'
 import itemsRouter from './routes/items'
 import agentsRouter from './routes/agents'
+import sessionsRouter from './routes/sessions'
 
 // Create database directory if it doesn't exist
 const dbPath = process.env.DATABASE_URL?.replace('sqlite:', '') || './data/ai-todo.db'
@@ -239,6 +240,7 @@ app.get('/health', async (req, res) => {
 app.use('/api/lists', listsRouter)
 app.use('/api/items', itemsRouter)
 app.use('/api/agents', agentsRouter)
+app.use('/api/sessions', sessionsRouter)
 
 // MCP command endpoint
 app.post('/api/mcp/command', (req, res) => {

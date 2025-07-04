@@ -362,4 +362,116 @@ router.post('/:id/move', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/items/:id/duplicate
+ * Duplicate an item
+ */
+router.post('/:id/duplicate', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { listId } = req.body
+
+    const originalItem = await itemsService.findById(id)
+    if (!originalItem) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: 'Item not found'
+      })
+    }
+
+    const duplicatedItem = await itemsService.create({
+      id: randomUUID(),
+      listId: listId || originalItem.listId,
+      title: `${originalItem.title} (Copy)`,
+      description: originalItem.description,
+      priority: originalItem.priority,
+      status: 'pending',
+      dueDate: originalItem.dueDate,
+      estimatedDuration: originalItem.estimatedDuration,
+      tags: originalItem.tags,
+      createdBy: 'user', // TODO: Get from auth
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+
+    res.status(201).json({
+      success: true,
+      data: duplicatedItem,
+      message: 'Item duplicated successfully'
+    })
+  } catch (error) {
+    console.error('Error duplicating item:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to duplicate item'
+    })
+  }
+})
+
+/**
+ * GET /api/items/search
+ * Search items by title or description
+ */
+router.get('/search', async (req, res) => {
+  try {
+    const { q, listId, status, limit = 50 } = req.query
+
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'Search query (q) is required'
+      })
+    }
+
+    const searchResults = await itemsService.search(q, {
+      listId: listId as string,
+      status: status as string,
+      limit: parseInt(limit as string)
+    })
+
+    res.json({
+      success: true,
+      data: searchResults,
+      message: `Found ${searchResults.length} items matching "${q}"`
+    })
+  } catch (error) {
+    console.error('Error searching items:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to search items'
+    })
+  }
+})
+
+/**
+ * GET /api/items/stats
+ * Get global item statistics
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const { listId } = req.query
+
+    const stats = listId
+      ? await itemsService.getListStats(listId as string)
+      : await itemsService.getGlobalStats()
+
+    res.json({
+      success: true,
+      data: stats,
+      message: 'Item statistics retrieved'
+    })
+  } catch (error) {
+    console.error('Error fetching item stats:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to fetch item statistics'
+    })
+  }
+})
+
 export default router
