@@ -249,24 +249,9 @@ app.use('/api/sessions', sessionsRouter)
 app.use('/api/bulk', bulkRouter)
 app.use('/api/search', searchRouter)
 
-// MCP command endpoint
-app.post('/api/mcp/command', (req, res) => {
-  const { action, targetType, targetId, parameters } = req.body
-  
-  res.json({
-    success: true,
-    command: `${action}:${targetType}:${targetId}`,
-    result: {
-      message: `MCP command executed: ${action} on ${targetType}`,
-      parameters
-    },
-    metadata: {
-      executionTime: Math.random() * 100,
-      agent: 'system',
-      timestamp: new Date().toISOString()
-    }
-  })
-})
+// MCP Integration Layer
+import mcpRouter from './routes/mcp'
+app.use('/api/mcp', mcpRouter)
 
 // Winston error logging middleware
 app.use(expressWinston.errorLogger({
