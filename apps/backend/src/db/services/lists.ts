@@ -1,5 +1,5 @@
 import { eq, and, or, desc, asc, isNull, sql } from 'drizzle-orm'
-import { BaseService } from './base'
+import { BaseService, BulkOperationResult } from './base'
 import { listsTable, itemsTable, type List, type NewList } from '../schema'
 
 /**
@@ -211,12 +211,277 @@ export class ListsService extends BaseService<typeof listsTable, List, NewList> 
     while (currentId) {
       const list = await this.findById(currentId)
       if (!list) break
-      
+
       breadcrumbs.unshift(list)
       currentId = list.parentListId
     }
 
     return breadcrumbs
+  }
+
+  /**
+   * Bulk update list status with hierarchy validation
+   */
+  async bulkUpdateStatus(
+    ids: string[],
+    status: 'active' | 'completed' | 'archived' | 'deleted',
+    options: {
+      continueOnError?: boolean
+      validateHierarchy?: boolean
+      updateTimestamps?: boolean
+      cascadeToItems?: boolean
+    } = {}
+  ): Promise<BulkOperationResult<List>> {
+    const { continueOnError = false, validateHierarchy = true, updateTimestamps = true, cascadeToItems = false } = options
+    const results: List[] = []
+    const errors: Array<{ index: number; id: string; error: string; details?: any }> = []
+
+    if (ids.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    // Validate hierarchy constraints if required
+    if (validateHierarchy) {
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i]
+        try {
+          // Check if list has children and status change would create invalid state
+          const children = await this.findByParent(id)
+          if (children.length > 0 && (status === 'deleted' || status === 'archived')) {
+            errors.push({
+              index: i,
+              id,
+              error: `Cannot ${status} list with active children`,
+              details: { childCount: children.length, children: children.map(c => c.id) }
+            })
+
+            if (!continueOnError) {
+              return {
+                success: false,
+                results,
+                errors,
+                summary: { total: ids.length, successful: 0, failed: errors.length }
+              }
+            }
+          }
+        } catch (error) {
+          errors.push({
+            index: i,
+            id,
+            error: error instanceof Error ? error.message : 'Hierarchy validation failed',
+            details: error
+          })
+
+          if (!continueOnError) {
+            return {
+              success: false,
+              results,
+              errors,
+              summary: { total: ids.length, successful: 0, failed: errors.length }
+            }
+          }
+        }
+      }
+    }
+
+    // Filter out lists with errors if continuing on error
+    const validIds = continueOnError
+      ? ids.filter((_, index) => !errors.some(e => e.index === index))
+      : ids
+
+    if (validIds.length === 0) {
+      return {
+        success: false,
+        results,
+        errors,
+        summary: { total: ids.length, successful: 0, failed: errors.length }
+      }
+    }
+
+    // Prepare update data
+    const updateData: Partial<NewList> = { status, updatedAt: new Date() }
+    if (updateTimestamps && status === 'completed') {
+      updateData.completedAt = new Date()
+    }
+
+    // Perform bulk update
+    try {
+      await this.transaction(async (db) => {
+        for (const id of validIds) {
+          const result = await db
+            .update(listsTable)
+            .set(updateData)
+            .where(eq(listsTable.id, id))
+            .returning()
+
+          if (result.length === 0) {
+            throw new Error(`List with ID ${id} not found`)
+          }
+          results.push(result[0])
+
+          // Cascade to items if requested
+          if (cascadeToItems) {
+            await db
+              .update(require('../schema').itemsTable)
+              .set({ status: status === 'completed' ? 'completed' : 'pending', updatedAt: new Date() })
+              .where(eq(require('../schema').itemsTable.listId, id))
+          }
+        }
+      })
+    } catch (error) {
+      // Add errors for all lists in the failed transaction
+      for (let i = 0; i < validIds.length; i++) {
+        const originalIndex = ids.indexOf(validIds[i])
+        errors.push({
+          index: originalIndex,
+          id: validIds[i],
+          error: error instanceof Error ? error.message : 'Bulk status update failed',
+          details: error
+        })
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: ids.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    }
+  }
+
+  /**
+   * Bulk move lists to a different parent
+   */
+  async bulkMoveToParent(
+    ids: string[],
+    targetParentId: string | null,
+    options: {
+      continueOnError?: boolean
+      validateHierarchy?: boolean
+    } = {}
+  ): Promise<BulkOperationResult<List>> {
+    const { continueOnError = false, validateHierarchy = true } = options
+    const results: List[] = []
+    const errors: Array<{ index: number; id: string; error: string; details?: any }> = []
+
+    if (ids.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    // Validate hierarchy constraints if required
+    if (validateHierarchy && targetParentId) {
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i]
+        try {
+          // Check for circular references
+          const wouldCreateCycle = await this.wouldCreateCycle(id, targetParentId)
+          if (wouldCreateCycle) {
+            errors.push({
+              index: i,
+              id,
+              error: 'Moving list would create circular reference',
+              details: { targetParentId, listId: id }
+            })
+
+            if (!continueOnError) {
+              return {
+                success: false,
+                results,
+                errors,
+                summary: { total: ids.length, successful: 0, failed: errors.length }
+              }
+            }
+          }
+        } catch (error) {
+          errors.push({
+            index: i,
+            id,
+            error: error instanceof Error ? error.message : 'Hierarchy validation failed',
+            details: error
+          })
+
+          if (!continueOnError) {
+            return {
+              success: false,
+              results,
+              errors,
+              summary: { total: ids.length, successful: 0, failed: errors.length }
+            }
+          }
+        }
+      }
+    }
+
+    // Filter out lists with errors if continuing on error
+    const validIds = continueOnError
+      ? ids.filter((_, index) => !errors.some(e => e.index === index))
+      : ids
+
+    if (validIds.length === 0) {
+      return {
+        success: false,
+        results,
+        errors,
+        summary: { total: ids.length, successful: 0, failed: errors.length }
+      }
+    }
+
+    // Perform bulk move
+    try {
+      await this.transaction(async (db) => {
+        for (const id of validIds) {
+          const result = await db
+            .update(listsTable)
+            .set({
+              parentListId: targetParentId,
+              updatedAt: new Date()
+            })
+            .where(eq(listsTable.id, id))
+            .returning()
+
+          if (result.length === 0) {
+            throw new Error(`List with ID ${id} not found`)
+          }
+          results.push(result[0])
+        }
+      })
+    } catch (error) {
+      // Add errors for all lists in the failed transaction
+      for (let i = 0; i < validIds.length; i++) {
+        const originalIndex = ids.indexOf(validIds[i])
+        errors.push({
+          index: originalIndex,
+          id: validIds[i],
+          error: error instanceof Error ? error.message : 'Bulk move operation failed',
+          details: error
+        })
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: ids.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    }
   }
 }
 

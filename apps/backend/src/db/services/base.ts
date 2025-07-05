@@ -2,6 +2,25 @@ import { eq, and, or, desc, asc, count, SQL, sql, like, ilike, gte, lte, gt, lt,
 import { getDb } from '../connection'
 
 /**
+ * Bulk operation result interface
+ */
+export interface BulkOperationResult<T> {
+  success: boolean
+  results: T[]
+  errors: Array<{
+    index: number
+    id?: string | number
+    error: string
+    details?: any
+  }>
+  summary: {
+    total: number
+    successful: number
+    failed: number
+  }
+}
+
+/**
  * SemanticType: BaseRepositoryService
  * Description: Enhanced base repository with advanced query building, filtering, and MCP integration
  * ExtensibleByAI: true
@@ -339,6 +358,277 @@ export abstract class BaseService<TTable, TSelect, TInsert> {
   async transaction<T>(callback: (db: any) => Promise<T>): Promise<T> {
     const db = await this.getDb()
     return await db.transaction(callback)
+  }
+
+  /**
+   * Bulk delete records with error handling
+   */
+  async bulkDelete(
+    ids: (string | number)[],
+    options: {
+      continueOnError?: boolean
+      batchSize?: number
+    } = {}
+  ): Promise<BulkOperationResult<{ id: string | number }>> {
+    const { continueOnError = false, batchSize = 50 } = options
+    const results: Array<{ id: string | number }> = []
+    const errors: Array<{ index: number; id: string | number; error: string; details?: any }> = []
+
+    if (ids.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    // Process in batches
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batch = ids.slice(i, i + batchSize)
+
+      if (continueOnError) {
+        // Process each delete individually
+        for (let j = 0; j < batch.length; j++) {
+          const id = batch[j]
+          try {
+            const deleted = await this.deleteById(id)
+            if (deleted) {
+              results.push({ id })
+            } else {
+              errors.push({
+                index: i + j,
+                id,
+                error: 'Record not found',
+                details: { id }
+              })
+            }
+          } catch (error) {
+            errors.push({
+              index: i + j,
+              id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              details: error
+            })
+          }
+        }
+      } else {
+        // Process batch in transaction
+        try {
+          await this.transaction(async (db) => {
+            for (const id of batch) {
+              const result = await db
+                .delete(this.table)
+                .where(eq((this.table as any)[this.primaryKey], id))
+
+              if (result.changes === 0) {
+                throw new Error(`Record with ID ${id} not found`)
+              }
+              results.push({ id })
+            }
+          })
+        } catch (error) {
+          // Record error for entire batch
+          for (let j = 0; j < batch.length; j++) {
+            errors.push({
+              index: i + j,
+              id: batch[j],
+              error: error instanceof Error ? error.message : 'Batch operation failed',
+              details: error
+            })
+          }
+
+          if (!continueOnError) {
+            break
+          }
+        }
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: ids.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    }
+  }
+
+  /**
+   * Bulk create records with error handling
+   */
+  async bulkCreate(
+    data: TInsert[],
+    options: {
+      continueOnError?: boolean
+      batchSize?: number
+    } = {}
+  ): Promise<BulkOperationResult<TSelect>> {
+    const { continueOnError = false, batchSize = 50 } = options
+    const results: TSelect[] = []
+    const errors: Array<{ index: number; error: string; details?: any }> = []
+
+    if (data.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    // Process in batches
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize)
+
+      if (continueOnError) {
+        // Process each item individually to handle errors
+        for (let j = 0; j < batch.length; j++) {
+          try {
+            const result = await this.create(batch[j])
+            results.push(result)
+          } catch (error) {
+            errors.push({
+              index: i + j,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              details: error
+            })
+          }
+        }
+      } else {
+        // Process batch atomically
+        try {
+          const batchResults = await this.createMany(batch)
+          results.push(...batchResults)
+        } catch (error) {
+          // If atomic operation fails, record error for entire batch
+          for (let j = 0; j < batch.length; j++) {
+            errors.push({
+              index: i + j,
+              error: error instanceof Error ? error.message : 'Batch operation failed',
+              details: error
+            })
+          }
+
+          if (!continueOnError) {
+            break // Stop processing if not continuing on error
+          }
+        }
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: data.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    }
+  }
+
+  /**
+   * Bulk update records with error handling
+   */
+  async bulkUpdate(
+    updates: Array<{ id: string | number; data: Partial<TInsert> }>,
+    options: {
+      continueOnError?: boolean
+      batchSize?: number
+    } = {}
+  ): Promise<BulkOperationResult<TSelect>> {
+    const { continueOnError = false, batchSize = 50 } = options
+    const results: TSelect[] = []
+    const errors: Array<{ index: number; id: string | number; error: string; details?: any }> = []
+
+    if (updates.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    // Process in batches
+    for (let i = 0; i < updates.length; i += batchSize) {
+      const batch = updates.slice(i, i + batchSize)
+
+      if (continueOnError) {
+        // Process each update individually
+        for (let j = 0; j < batch.length; j++) {
+          const update = batch[j]
+          try {
+            const result = await this.updateById(update.id, update.data)
+            if (result) {
+              results.push(result)
+            } else {
+              errors.push({
+                index: i + j,
+                id: update.id,
+                error: 'Record not found',
+                details: { id: update.id }
+              })
+            }
+          } catch (error) {
+            errors.push({
+              index: i + j,
+              id: update.id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              details: error
+            })
+          }
+        }
+      } else {
+        // Process batch in transaction
+        try {
+          await this.transaction(async (db) => {
+            for (const update of batch) {
+              const result = await db
+                .update(this.table)
+                .set(update.data)
+                .where(eq((this.table as any)[this.primaryKey], update.id))
+                .returning()
+
+              if (result.length === 0) {
+                throw new Error(`Record with ID ${update.id} not found`)
+              }
+              results.push(result[0])
+            }
+          })
+        } catch (error) {
+          // Record error for entire batch
+          for (let j = 0; j < batch.length; j++) {
+            errors.push({
+              index: i + j,
+              id: batch[j].id,
+              error: error instanceof Error ? error.message : 'Batch operation failed',
+              details: error
+            })
+          }
+
+          if (!continueOnError) {
+            break
+          }
+        }
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: updates.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    }
   }
 }
 

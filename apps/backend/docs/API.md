@@ -2,7 +2,7 @@
 
 ## Overview
 
-This API provides comprehensive CRUD operations for managing lists, items, agents, and sessions with proper HTTP status codes, validation, and error handling.
+This API provides comprehensive CRUD operations for managing lists, items, agents, and sessions with proper HTTP status codes, validation, and error handling. It also includes bulk operations for efficient batch processing.
 
 ## Base URL
 
@@ -444,6 +444,318 @@ Duplicate an item.
 - **201**: Item duplicated successfully
 - **404**: Item not found
 - **500**: Server error
+
+## Bulk Operations API
+
+The bulk operations API allows efficient batch processing of multiple items or lists in a single request. All bulk operations support partial success scenarios and provide detailed error reporting.
+
+### Common Bulk Response Format
+
+All bulk operations return a standardized response format:
+
+```json
+{
+  "success": boolean,
+  "data": {
+    "results": [/* Successfully processed items */],
+    "summary": {
+      "total": number,
+      "successful": number,
+      "failed": number
+    },
+    "errors": [
+      {
+        "index": number,
+        "id": "string (optional)",
+        "error": "string",
+        "details": any
+      }
+    ]
+  },
+  "message": "string",
+  "correlationId": "string",
+  "timestamp": "string"
+}
+```
+
+### HTTP Status Codes for Bulk Operations
+
+- **200/201**: All operations successful
+- **207**: Partial success (some operations succeeded, some failed)
+- **400**: Validation error or all operations failed
+- **429**: Rate limit exceeded (bulk operations have stricter limits)
+- **500**: Server error
+
+### Bulk Items Operations
+
+#### POST /api/bulk/items/create
+
+Bulk create multiple items.
+
+**Request Body:**
+```json
+{
+  "items": [
+    {
+      "listId": "string (required, UUID)",
+      "title": "string (required, max 500 chars)",
+      "description": "string (optional)",
+      "priority": "low|medium|high|urgent (optional, default: medium)",
+      "status": "pending|in_progress|completed|blocked (optional, default: pending)",
+      "dueDate": "date (optional)",
+      "estimatedDuration": "number (optional, >= 0, in minutes)",
+      "tags": "array of strings (optional)",
+      "assignedTo": "string (optional)",
+      "dependencies": "array of UUIDs (optional)"
+    }
+  ],
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "validateDependencies": "boolean (optional, default: true)"
+  }
+}
+```
+
+**Limits:** Maximum 100 items per request
+
+**Response:**
+- **201**: All items created successfully
+- **207**: Partial success
+- **400**: Validation error or all items failed
+
+#### PUT /api/bulk/items/update
+
+Bulk update multiple items.
+
+**Request Body:**
+```json
+{
+  "updates": [
+    {
+      "id": "string (required, UUID)",
+      "data": {
+        "title": "string (optional, max 500 chars)",
+        "description": "string (optional)",
+        "priority": "low|medium|high|urgent (optional)",
+        "status": "pending|in_progress|completed|blocked (optional)",
+        "dueDate": "date (optional)",
+        "estimatedDuration": "number (optional, >= 0, in minutes)",
+        "actualDuration": "number (optional, >= 0, in minutes)",
+        "tags": "array of strings (optional)",
+        "assignedTo": "string (optional)",
+        "completedAt": "date (optional)"
+      }
+    }
+  ],
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "validateDependencies": "boolean (optional, default: true)"
+  }
+}
+```
+
+**Limits:** Maximum 100 items per request
+
+**Response:**
+- **200**: All items updated successfully
+- **207**: Partial success
+- **400**: Validation error or all items failed
+
+#### DELETE /api/bulk/items/delete
+
+Bulk delete multiple items.
+
+**Request Body:**
+```json
+{
+  "ids": ["string (UUID)"],
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "force": "boolean (optional, default: false)"
+  }
+}
+```
+
+**Limits:** Maximum 100 items per request
+
+**Response:**
+- **200**: All items deleted successfully
+- **207**: Partial success
+- **400**: Validation error or all items failed
+
+#### PATCH /api/bulk/items/status
+
+Bulk update item status with dependency validation.
+
+**Request Body:**
+```json
+{
+  "ids": ["string (UUID)"],
+  "status": "pending|in_progress|completed|blocked",
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "updateTimestamps": "boolean (optional, default: true)"
+  }
+}
+```
+
+**Limits:** Maximum 100 items per request
+
+**Response:**
+- **200**: All items updated successfully
+- **207**: Partial success
+- **400**: Validation error or dependency conflicts
+
+#### PATCH /api/bulk/items/move
+
+Bulk move items to a different list.
+
+**Request Body:**
+```json
+{
+  "ids": ["string (UUID)"],
+  "targetListId": "string (required, UUID)",
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "preservePosition": "boolean (optional, default: false)"
+  }
+}
+```
+
+**Limits:** Maximum 100 items per request
+
+**Response:**
+- **200**: All items moved successfully
+- **207**: Partial success
+- **400**: Validation error or all items failed
+
+### Bulk Lists Operations
+
+#### POST /api/bulk/lists/create
+
+Bulk create multiple lists.
+
+**Request Body:**
+```json
+{
+  "lists": [
+    {
+      "title": "string (required, max 500 chars)",
+      "description": "string (optional)",
+      "parentListId": "string (optional, UUID)",
+      "priority": "low|medium|high|urgent (optional, default: medium)",
+      "status": "active|completed|archived|deleted (optional, default: active)"
+    }
+  ],
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "validateHierarchy": "boolean (optional, default: true)"
+  }
+}
+```
+
+**Limits:** Maximum 50 lists per request
+
+**Response:**
+- **201**: All lists created successfully
+- **207**: Partial success
+- **400**: Validation error or all lists failed
+
+#### PUT /api/bulk/lists/update
+
+Bulk update multiple lists.
+
+**Request Body:**
+```json
+{
+  "updates": [
+    {
+      "id": "string (required, UUID)",
+      "data": {
+        "title": "string (optional, max 500 chars)",
+        "description": "string (optional)",
+        "priority": "low|medium|high|urgent (optional)",
+        "status": "active|completed|archived|deleted (optional)",
+        "completedAt": "date (optional)"
+      }
+    }
+  ],
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "validateHierarchy": "boolean (optional, default: true)"
+  }
+}
+```
+
+**Limits:** Maximum 50 lists per request
+
+**Response:**
+- **200**: All lists updated successfully
+- **207**: Partial success
+- **400**: Validation error or all lists failed
+
+#### DELETE /api/bulk/lists/delete
+
+Bulk delete multiple lists.
+
+**Request Body:**
+```json
+{
+  "ids": ["string (UUID)"],
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "force": "boolean (optional, default: false)",
+    "deleteItems": "boolean (optional, default: false)"
+  }
+}
+```
+
+**Limits:** Maximum 50 lists per request
+
+**Response:**
+- **200**: All lists deleted successfully
+- **207**: Partial success
+- **400**: Validation error or all lists failed
+
+#### PATCH /api/bulk/lists/status
+
+Bulk update list status with hierarchy validation.
+
+**Request Body:**
+```json
+{
+  "ids": ["string (UUID)"],
+  "status": "active|completed|archived|deleted",
+  "options": {
+    "continueOnError": "boolean (optional, default: false)",
+    "updateTimestamps": "boolean (optional, default: true)",
+    "cascadeToItems": "boolean (optional, default: false)"
+  }
+}
+```
+
+**Limits:** Maximum 50 lists per request
+
+**Response:**
+- **200**: All lists updated successfully
+- **207**: Partial success
+- **400**: Validation error or hierarchy conflicts
+
+### Bulk Operations Rate Limiting
+
+Bulk operations have stricter rate limits:
+- **10 bulk requests per 15 minutes** per IP
+- **Maximum 100 items or 50 lists per request**
+- **Batch processing** with configurable batch sizes for performance
+
+### Bulk Operations Best Practices
+
+1. **Use continueOnError: true** for large batches where partial success is acceptable
+2. **Monitor the summary** in responses to track success/failure rates
+3. **Handle 207 status codes** appropriately for partial success scenarios
+4. **Validate dependencies** when updating item status to completed
+5. **Use smaller batch sizes** for better performance and error isolation
+6. **Include correlation IDs** for tracking and debugging bulk operations
 
 ## Error Handling
 

@@ -252,6 +252,112 @@ export const validationSchemas = {
   actions: actionSchemas
 }
 
+// Bulk operation validation schemas
+export const bulkSchemas = {
+  // Bulk items operations
+  bulkCreateItems: z.object({
+    items: z.array(itemSchemas.create)
+      .min(1, 'At least one item is required')
+      .max(100, 'Cannot create more than 100 items at once'),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      validateDependencies: z.boolean().default(true)
+    }).optional()
+  }),
+
+  bulkUpdateItems: z.object({
+    updates: z.array(z.object({
+      id: uuidSchema,
+      data: itemSchemas.update
+    }))
+      .min(1, 'At least one update is required')
+      .max(100, 'Cannot update more than 100 items at once'),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      validateDependencies: z.boolean().default(true)
+    }).optional()
+  }),
+
+  bulkDeleteItems: z.object({
+    ids: z.array(uuidSchema)
+      .min(1, 'At least one ID is required')
+      .max(100, 'Cannot delete more than 100 items at once'),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      force: z.boolean().default(false) // Skip dependency checks
+    }).optional()
+  }),
+
+  bulkStatusItems: z.object({
+    ids: z.array(uuidSchema)
+      .min(1, 'At least one ID is required')
+      .max(100, 'Cannot update more than 100 items at once'),
+    status: z.enum(['pending', 'in_progress', 'completed', 'blocked']),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      updateTimestamps: z.boolean().default(true)
+    }).optional()
+  }),
+
+  bulkMoveItems: z.object({
+    ids: z.array(uuidSchema)
+      .min(1, 'At least one ID is required')
+      .max(100, 'Cannot move more than 100 items at once'),
+    targetListId: uuidSchema,
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      preservePosition: z.boolean().default(false)
+    }).optional()
+  }),
+
+  // Bulk lists operations
+  bulkCreateLists: z.object({
+    lists: z.array(listSchemas.create)
+      .min(1, 'At least one list is required')
+      .max(50, 'Cannot create more than 50 lists at once'),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      validateHierarchy: z.boolean().default(true)
+    }).optional()
+  }),
+
+  bulkUpdateLists: z.object({
+    updates: z.array(z.object({
+      id: uuidSchema,
+      data: listSchemas.update
+    }))
+      .min(1, 'At least one update is required')
+      .max(50, 'Cannot update more than 50 lists at once'),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      validateHierarchy: z.boolean().default(true)
+    }).optional()
+  }),
+
+  bulkDeleteLists: z.object({
+    ids: z.array(uuidSchema)
+      .min(1, 'At least one ID is required')
+      .max(50, 'Cannot delete more than 50 lists at once'),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      force: z.boolean().default(false), // Skip hierarchy checks
+      deleteItems: z.boolean().default(false) // Delete contained items
+    }).optional()
+  }),
+
+  bulkStatusLists: z.object({
+    ids: z.array(uuidSchema)
+      .min(1, 'At least one ID is required')
+      .max(50, 'Cannot update more than 50 lists at once'),
+    status: z.enum(['active', 'completed', 'archived', 'deleted']),
+    options: z.object({
+      continueOnError: z.boolean().default(false),
+      updateTimestamps: z.boolean().default(true),
+      cascadeToItems: z.boolean().default(false)
+    }).optional()
+  })
+}
+
 // Type exports for TypeScript
 export type ListCreateSchema = z.infer<typeof listSchemas.create>
 export type ListUpdateSchema = z.infer<typeof listSchemas.update>
@@ -264,6 +370,18 @@ export type ItemQuerySchema = z.infer<typeof itemSchemas.query>
 export type AgentCreateSchema = z.infer<typeof agentSchemas.create>
 export type AgentUpdateSchema = z.infer<typeof agentSchemas.update>
 export type AgentQuerySchema = z.infer<typeof agentSchemas.query>
+
+// Bulk operation types
+export type BulkCreateItemsSchema = z.infer<typeof bulkSchemas.bulkCreateItems>
+export type BulkUpdateItemsSchema = z.infer<typeof bulkSchemas.bulkUpdateItems>
+export type BulkDeleteItemsSchema = z.infer<typeof bulkSchemas.bulkDeleteItems>
+export type BulkStatusItemsSchema = z.infer<typeof bulkSchemas.bulkStatusItems>
+export type BulkMoveItemsSchema = z.infer<typeof bulkSchemas.bulkMoveItems>
+
+export type BulkCreateListsSchema = z.infer<typeof bulkSchemas.bulkCreateLists>
+export type BulkUpdateListsSchema = z.infer<typeof bulkSchemas.bulkUpdateLists>
+export type BulkDeleteListsSchema = z.infer<typeof bulkSchemas.bulkDeleteLists>
+export type BulkStatusListsSchema = z.infer<typeof bulkSchemas.bulkStatusLists>
 
 export type SessionCreateSchema = z.infer<typeof sessionSchemas.create>
 export type SessionUpdateSchema = z.infer<typeof sessionSchemas.update>

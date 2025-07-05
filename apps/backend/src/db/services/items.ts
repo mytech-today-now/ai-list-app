@@ -1,5 +1,5 @@
 import { eq, and, or, desc, asc, inArray, sql, isNull } from 'drizzle-orm'
-import { BaseService } from './base'
+import { BaseService, BulkOperationResult } from './base'
 import { itemsTable, itemDependenciesTable, type Item, type NewItem } from '../schema'
 
 /**
@@ -289,13 +289,246 @@ export class ItemsService extends BaseService<typeof itemsTable, Item, NewItem> 
   }> {
     const items = await this.findByListId(listId)
     const now = new Date()
-    
+
     return {
       total: items.length,
       completed: items.filter(i => i.status === 'completed').length,
       inProgress: items.filter(i => i.status === 'in_progress').length,
       pending: items.filter(i => i.status === 'pending').length,
       overdue: items.filter(i => i.dueDate && new Date(i.dueDate) < now && i.status !== 'completed').length
+    }
+  }
+
+  /**
+   * Bulk update item status with dependency validation
+   */
+  async bulkUpdateStatus(
+    ids: string[],
+    status: 'pending' | 'in_progress' | 'completed' | 'blocked',
+    options: {
+      continueOnError?: boolean
+      validateDependencies?: boolean
+      updateTimestamps?: boolean
+    } = {}
+  ): Promise<BulkOperationResult<Item>> {
+    const { continueOnError = false, validateDependencies = true, updateTimestamps = true } = options
+    const results: Item[] = []
+    const errors: Array<{ index: number; id: string; error: string; details?: any }> = []
+
+    if (ids.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    // Validate dependencies if required
+    if (validateDependencies && status === 'completed') {
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i]
+        try {
+          const canComplete = await this.canStart(id)
+          if (!canComplete) {
+            errors.push({
+              index: i,
+              id,
+              error: 'Cannot complete item due to incomplete dependencies',
+              details: { status, dependencies: await this.getDependencies(id) }
+            })
+
+            if (!continueOnError) {
+              return {
+                success: false,
+                results,
+                errors,
+                summary: { total: ids.length, successful: 0, failed: errors.length }
+              }
+            }
+          }
+        } catch (error) {
+          errors.push({
+            index: i,
+            id,
+            error: error instanceof Error ? error.message : 'Dependency validation failed',
+            details: error
+          })
+
+          if (!continueOnError) {
+            return {
+              success: false,
+              results,
+              errors,
+              summary: { total: ids.length, successful: 0, failed: errors.length }
+            }
+          }
+        }
+      }
+    }
+
+    // Filter out items with errors if continuing on error
+    const validIds = continueOnError
+      ? ids.filter((_, index) => !errors.some(e => e.index === index))
+      : ids
+
+    if (validIds.length === 0) {
+      return {
+        success: false,
+        results,
+        errors,
+        summary: { total: ids.length, successful: 0, failed: errors.length }
+      }
+    }
+
+    // Prepare update data
+    const updateData: Partial<NewItem> = { status, updatedAt: new Date() }
+    if (updateTimestamps && status === 'completed') {
+      updateData.completedAt = new Date()
+    }
+
+    // Perform bulk update
+    try {
+      await this.transaction(async (db) => {
+        for (const id of validIds) {
+          const result = await db
+            .update(itemsTable)
+            .set(updateData)
+            .where(eq(itemsTable.id, id))
+            .returning()
+
+          if (result.length === 0) {
+            throw new Error(`Item with ID ${id} not found`)
+          }
+          results.push(result[0])
+        }
+      })
+    } catch (error) {
+      // Add errors for all items in the failed transaction
+      for (let i = 0; i < validIds.length; i++) {
+        const originalIndex = ids.indexOf(validIds[i])
+        errors.push({
+          index: originalIndex,
+          id: validIds[i],
+          error: error instanceof Error ? error.message : 'Bulk status update failed',
+          details: error
+        })
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: ids.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    }
+  }
+
+  /**
+   * Bulk move items to a different list
+   */
+  async bulkMoveToList(
+    ids: string[],
+    targetListId: string,
+    options: {
+      continueOnError?: boolean
+      preservePosition?: boolean
+    } = {}
+  ): Promise<BulkOperationResult<Item>> {
+    const { continueOnError = false, preservePosition = false } = options
+    const results: Item[] = []
+    const errors: Array<{ index: number; id: string; error: string; details?: any }> = []
+
+    if (ids.length === 0) {
+      return {
+        success: true,
+        results: [],
+        errors: [],
+        summary: { total: 0, successful: 0, failed: 0 }
+      }
+    }
+
+    try {
+      await this.transaction(async (db) => {
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i]
+          try {
+            // Get current item
+            const currentItem = await this.findById(id)
+            if (!currentItem) {
+              throw new Error(`Item with ID ${id} not found`)
+            }
+
+            // Prepare update data
+            const updateData: Partial<NewItem> = {
+              listId: targetListId,
+              updatedAt: new Date()
+            }
+
+            // Set position if not preserving
+            if (!preservePosition) {
+              // Get max position in target list
+              const maxPositionResult = await db
+                .select({ maxPosition: sql<number>`COALESCE(MAX(${itemsTable.position}), -1)` })
+                .from(itemsTable)
+                .where(eq(itemsTable.listId, targetListId))
+
+              updateData.position = (maxPositionResult[0]?.maxPosition || -1) + 1
+            }
+
+            // Update item
+            const result = await db
+              .update(itemsTable)
+              .set(updateData)
+              .where(eq(itemsTable.id, id))
+              .returning()
+
+            if (result.length === 0) {
+              throw new Error(`Failed to update item ${id}`)
+            }
+
+            results.push(result[0])
+          } catch (error) {
+            if (continueOnError) {
+              errors.push({
+                index: i,
+                id,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                details: error
+              })
+            } else {
+              throw error
+            }
+          }
+        }
+      })
+    } catch (error) {
+      if (!continueOnError) {
+        // Add errors for all items if transaction failed
+        for (let i = 0; i < ids.length; i++) {
+          errors.push({
+            index: i,
+            id: ids[i],
+            error: error instanceof Error ? error.message : 'Bulk move operation failed',
+            details: error
+          })
+        }
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      results,
+      errors,
+      summary: {
+        total: ids.length,
+        successful: results.length,
+        failed: errors.length
+      }
     }
   }
 }
