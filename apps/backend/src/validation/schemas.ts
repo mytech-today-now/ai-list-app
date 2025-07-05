@@ -101,7 +101,18 @@ export const itemSchemas = {
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).max(100).optional()
   }),
-  
+
+  searchQuery: z.object({
+    q: z.string().min(1, 'Search query is required'),
+    listId: uuidSchema.optional(),
+    status: z.enum(['pending', 'in_progress', 'completed', 'blocked']).optional(),
+    limit: z.coerce.number().min(1).max(100).optional().default(50)
+  }),
+
+  statsQuery: z.object({
+    listId: uuidSchema.optional()
+  }),
+
   params: z.object({
     id: uuidSchema
   })

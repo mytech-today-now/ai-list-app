@@ -2,10 +2,11 @@ import { jest } from '@jest/globals'
 import request from 'supertest'
 import { Express } from 'express'
 import { performance } from 'perf_hooks'
+import { randomUUID } from 'crypto'
 
 // Mock data generators
 export const mockUser = {
-  id: '1',
+  id: randomUUID(),
   email: 'test@example.com',
   name: 'Test User',
   passwordHash: '$2b$10$test.hash.value',
@@ -14,24 +15,24 @@ export const mockUser = {
 }
 
 export const mockTask = {
-  id: '1',
+  id: randomUUID(),
   title: 'Test Task',
   description: 'Test Description',
   completed: false,
   priority: 'medium' as const,
   dueDate: null,
-  listId: '1',
-  userId: '1',
+  listId: randomUUID(),
+  userId: randomUUID(),
   createdAt: new Date(),
   updatedAt: new Date(),
 }
 
 export const mockList = {
-  id: '1',
+  id: randomUUID(),
   name: 'Test List',
   description: 'Test List Description',
   color: '#3B82F6',
-  userId: '1',
+  userId: randomUUID(),
   createdAt: new Date(),
   updatedAt: new Date(),
 }

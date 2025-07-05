@@ -246,16 +246,16 @@ export function errorHandler(
   // Handle Zod validation errors
   if (error.name === 'ZodError') {
     logError(error, req, 400)
-    
+
     const response = createErrorResponse(
       400,
       'Validation failed',
-      'VALIDATION_ERROR',
+      'Validation error',
       correlationId,
       error.message,
       error.stack
     )
-    
+
     res.status(400).json(response)
     return
   }

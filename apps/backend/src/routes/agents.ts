@@ -33,14 +33,41 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       data: safeAgents,
-      message: `Found ${agents.length} agents`
+      message: `Found ${agents.length} agents`,
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error fetching agents:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to fetch agents'
+      message: 'Failed to fetch agents',
+      correlationId: randomUUID()
+    })
+  }
+})
+
+/**
+ * GET /api/agents/stats
+ * Get agent statistics
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const stats = await agentsService.getAgentStats()
+
+    res.json({
+      success: true,
+      data: stats,
+      message: 'Agent statistics retrieved',
+      correlationId: randomUUID()
+    })
+  } catch (error) {
+    console.error('Error fetching agent stats:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: 'Failed to fetch agent statistics',
+      correlationId: randomUUID()
     })
   }
 })
@@ -59,7 +86,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
@@ -74,14 +102,16 @@ router.get('/:id', async (req, res) => {
     res.json({
       success: true,
       data: result,
-      message: 'Agent found'
+      message: 'Agent found',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error fetching agent:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to fetch agent'
+      message: 'Failed to fetch agent',
+      correlationId: randomUUID()
     })
   }
 })
@@ -104,7 +134,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Name and role are required'
+        message: 'Name and role are required',
+        correlationId: randomUUID()
       })
     }
 
@@ -113,7 +144,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Invalid role'
+        message: 'Invalid role',
+        correlationId: randomUUID()
       })
     }
 
@@ -139,14 +171,16 @@ router.post('/', async (req, res) => {
     res.status(201).json({
       success: true,
       data: safeAgent,
-      message: 'Agent created successfully'
+      message: 'Agent created successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error creating agent:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to create agent'
+      message: 'Failed to create agent',
+      correlationId: randomUUID()
     })
   }
 })
@@ -180,7 +214,8 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
@@ -190,14 +225,16 @@ router.put('/:id', async (req, res) => {
     res.json({
       success: true,
       data: safeAgent,
-      message: 'Agent updated successfully'
+      message: 'Agent updated successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error updating agent:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to update agent'
+      message: 'Failed to update agent',
+      correlationId: randomUUID()
     })
   }
 })
@@ -215,20 +252,23 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
     res.json({
       success: true,
-      message: 'Agent deleted successfully'
+      message: 'Agent deleted successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error deleting agent:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to delete agent'
+      message: 'Failed to delete agent',
+      correlationId: randomUUID()
     })
   }
 })
@@ -247,7 +287,8 @@ router.post('/:id/suspend', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
@@ -256,14 +297,16 @@ router.post('/:id/suspend', async (req, res) => {
     res.json({
       success: true,
       data: safeAgent,
-      message: 'Agent suspended successfully'
+      message: 'Agent suspended successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error suspending agent:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to suspend agent'
+      message: 'Failed to suspend agent',
+      correlationId: randomUUID()
     })
   }
 })
@@ -281,7 +324,8 @@ router.post('/:id/reactivate', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
@@ -290,14 +334,16 @@ router.post('/:id/reactivate', async (req, res) => {
     res.json({
       success: true,
       data: safeAgent,
-      message: 'Agent reactivated successfully'
+      message: 'Agent reactivated successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error reactivating agent:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to reactivate agent'
+      message: 'Failed to reactivate agent',
+      correlationId: randomUUID()
     })
   }
 })
@@ -316,14 +362,16 @@ router.get('/:id/activity', async (req, res) => {
     res.json({
       success: true,
       data: activity,
-      message: 'Activity summary retrieved'
+      message: 'Activity summary retrieved',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error fetching agent activity:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to fetch agent activity'
+      message: 'Failed to fetch agent activity',
+      correlationId: randomUUID()
     })
   }
 })
@@ -341,7 +389,8 @@ router.post('/:id/permissions', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Permissions must be an array'
+        message: 'Permissions must be an array',
+        correlationId: randomUUID()
       })
     }
 
@@ -354,7 +403,8 @@ router.post('/:id/permissions', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
@@ -364,14 +414,16 @@ router.post('/:id/permissions', async (req, res) => {
     res.json({
       success: true,
       data: safeAgent,
-      message: 'Agent permissions updated successfully'
+      message: 'Agent permissions updated successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error updating agent permissions:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to update agent permissions'
+      message: 'Failed to update agent permissions',
+      correlationId: randomUUID()
     })
   }
 })
@@ -389,7 +441,8 @@ router.post('/:id/verify-key', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'API key is required'
+        message: 'API key is required',
+        correlationId: randomUUID()
       })
     }
 
@@ -398,37 +451,16 @@ router.post('/:id/verify-key', async (req, res) => {
     res.json({
       success: true,
       data: { valid: isValid },
-      message: isValid ? 'API key is valid' : 'API key is invalid'
+      message: isValid ? 'API key is valid' : 'API key is invalid',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error verifying API key:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to verify API key'
-    })
-  }
-})
-
-/**
- * GET /api/agents/stats
- * Get agent statistics
- */
-router.get('/stats', async (req, res) => {
-  try {
-    const stats = await agentsService.getAgentStats()
-
-    res.json({
-      success: true,
-      data: stats,
-      message: 'Agent statistics retrieved'
-    })
-  } catch (error) {
-    console.error('Error fetching agent stats:', error)
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'Failed to fetch agent statistics'
+      message: 'Failed to verify API key',
+      correlationId: randomUUID()
     })
   }
 })

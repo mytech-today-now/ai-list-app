@@ -136,7 +136,7 @@ export abstract class BaseCRUDController<TEntity, TCreate, TUpdate, TQuery = any
       false,
       null,
       'Validation failed',
-      errors.join('; '),
+      'Validation error',
       correlationId
     ))
   }
@@ -152,7 +152,7 @@ export abstract class BaseCRUDController<TEntity, TCreate, TUpdate, TQuery = any
       false,
       null,
       `${this.entityName} not found`,
-      'The requested resource was not found',
+      'Not found',
       correlationId
     ))
   }

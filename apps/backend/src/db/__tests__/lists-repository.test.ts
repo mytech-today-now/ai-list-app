@@ -41,6 +41,14 @@ describe('Lists Repository', () => {
   beforeAll(async () => {
     // Initialize test environment
     await RepositoryTestUtils.createTestDatabase()
+
+    // Register the lists repository with the registry
+    repositoryRegistry.register('lists', () => createMockListsRepository(), {
+      entityType: 'List',
+      description: 'Repository for managing hierarchical lists',
+      dependencies: [],
+      singleton: true
+    })
   })
 
   afterAll(async () => {

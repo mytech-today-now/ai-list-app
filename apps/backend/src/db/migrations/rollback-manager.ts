@@ -217,12 +217,15 @@ export class RollbackManager {
     const backupFileName = `backup_${timestamp.toISOString().replace(/[:.]/g, '-')}.sql`
     const backupFilePath = join(this.backupPath, backupFileName)
 
+    // Ensure backup directory exists
+    await import('fs').then(fs => fs.promises.mkdir(this.backupPath, { recursive: true }))
+
     // Get all table names
     const tables = await this.getAllTableNames()
-    
+
     // Create backup SQL
     let backupSql = `-- Database backup created at ${timestamp.toISOString()}\n\n`
-    
+
     for (const table of tables) {
       backupSql += await this.exportTableData(table)
       backupSql += '\n\n'

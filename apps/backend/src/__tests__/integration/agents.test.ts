@@ -1,5 +1,6 @@
 import request from 'supertest'
 import express from 'express'
+import { randomUUID } from 'crypto'
 import agentsRouter from '../../routes/agents'
 import { agentsService } from '../../db/services'
 
@@ -30,6 +31,15 @@ describe('Agents API Integration Tests', () => {
   beforeEach(() => {
     app = express()
     app.use(express.json())
+
+    // Add correlation ID middleware
+    app.use((req: any, res: any, next: any) => {
+      const correlationId = req.headers['x-correlation-id'] as string || randomUUID()
+      req.correlationId = correlationId
+      res.setHeader('X-Correlation-ID', correlationId)
+      next()
+    })
+
     app.use('/api/agents', agentsRouter)
     jest.clearAllMocks()
   })
@@ -37,18 +47,18 @@ describe('Agents API Integration Tests', () => {
   describe('GET /api/agents', () => {
     it('should get all agents', async () => {
       const mockAgents = [
-        { 
-          id: 'agent-1', 
-          name: 'Reader Agent', 
-          role: 'reader', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          name: 'Reader Agent',
+          role: 'reader',
           status: 'active',
           permissions: ['read'],
           apiKeyHash: 'hash1'
         },
-        { 
-          id: 'agent-2', 
-          name: 'Executor Agent', 
-          role: 'executor', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440002',
+          name: 'Executor Agent',
+          role: 'executor',
           status: 'active',
           permissions: ['create', 'update'],
           apiKeyHash: 'hash2'
@@ -64,17 +74,18 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: mockAgents.map(agent => ({ ...agent, apiKeyHash: undefined })),
-        message: 'Found 2 agents'
+        message: 'Found 2 agents',
+        correlationId: expect.any(String)
       })
       expect(agentsService.findAll).toHaveBeenCalledTimes(1)
     })
 
     it('should filter agents by role', async () => {
       const mockAgents = [
-        { 
-          id: 'agent-1', 
-          name: 'Reader Agent', 
-          role: 'reader', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          name: 'Reader Agent',
+          role: 'reader',
           status: 'active',
           permissions: ['read']
         }
@@ -156,33 +167,35 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to fetch agents'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
   describe('GET /api/agents/:id', () => {
     it('should get a specific agent by ID', async () => {
-      const mockAgent = { 
-        id: 'agent-1', 
-        name: 'Test Agent', 
+      const mockAgent = {
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        name: 'Test Agent',
         role: 'executor',
         status: 'active',
         permissions: ['create', 'update'],
         apiKeyHash: 'secret-hash'
       }
-      
+
       ;(agentsService.findById as jest.Mock).mockResolvedValue(mockAgent)
 
       const response = await request(app)
-        .get('/api/agents/agent-1')
+        .get('/api/agents/550e8400-e29b-41d4-a716-446655440001')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: { ...mockAgent, apiKeyHash: undefined },
-        message: 'Agent found'
+        message: 'Agent found',
+        correlationId: expect.any(String)
       })
-      expect(agentsService.findById).toHaveBeenCalledWith('agent-1')
+      expect(agentsService.findById).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001')
     })
 
     it('should return 404 for non-existent agent', async () => {
@@ -196,7 +209,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Agent not found'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
 
     it('should include activity summary when requested', async () => {
@@ -241,7 +255,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to fetch agent'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -276,7 +291,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: createdAgent,
-        message: 'Agent created successfully'
+        message: 'Agent created successfully',
+        correlationId: expect.any(String)
       })
 
       expect(agentsService.createWithApiKey).toHaveBeenCalledWith(
@@ -301,7 +317,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Validation error',
         message: 'Name and role are required'
-      })
+      ,
+        correlationId: expect.any(String)})
       expect(agentsService.create).not.toHaveBeenCalled()
     })
 
@@ -315,7 +332,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Validation error',
         message: 'Invalid role'
-      })
+      ,
+        correlationId: expect.any(String)})
       expect(agentsService.create).not.toHaveBeenCalled()
     })
 
@@ -360,7 +378,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to create agent'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -390,7 +409,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: updatedAgent,
-        message: 'Agent updated successfully'
+        message: 'Agent updated successfully',
+        correlationId: expect.any(String)
       })
       
       expect(agentsService.updateById).toHaveBeenCalledWith('agent-1', 
@@ -415,7 +435,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Agent not found'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -429,7 +450,8 @@ describe('Agents API Integration Tests', () => {
 
       expect(response.body).toEqual({
         success: true,
-        message: 'Agent deleted successfully'
+        message: 'Agent deleted successfully',
+        correlationId: expect.any(String)
       })
       expect(agentsService.deleteById).toHaveBeenCalledWith('agent-1')
     })
@@ -445,7 +467,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Agent not found'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
 
     it('should handle database errors during deletion', async () => {
@@ -459,7 +482,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to delete agent'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -484,7 +508,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { ...suspendedAgent, apiKeyHash: undefined },
-        message: 'Agent suspended successfully'
+        message: 'Agent suspended successfully',
+        correlationId: expect.any(String)
       })
       expect(agentsService.suspend).toHaveBeenCalledWith('agent-1', 'Security violation')
     })
@@ -518,7 +543,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Agent not found'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
 
     it('should handle database errors', async () => {
@@ -533,7 +559,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to suspend agent'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -556,7 +583,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { ...reactivatedAgent, apiKeyHash: undefined },
-        message: 'Agent reactivated successfully'
+        message: 'Agent reactivated successfully',
+        correlationId: expect.any(String)
       })
       expect(agentsService.reactivate).toHaveBeenCalledWith('agent-1')
     })
@@ -572,7 +600,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Agent not found'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
 
     it('should handle database errors', async () => {
@@ -586,7 +615,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to reactivate agent'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -612,7 +642,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: mockActivity,
-        message: 'Activity summary retrieved'
+        message: 'Activity summary retrieved',
+        correlationId: expect.any(String)
       })
       expect(agentsService.getActivitySummary).toHaveBeenCalledWith('agent-1', 30)
     })
@@ -639,7 +670,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to fetch agent activity'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -664,7 +696,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { ...updatedAgent, apiKeyHash: undefined },
-        message: 'Agent permissions updated successfully'
+        message: 'Agent permissions updated successfully',
+        correlationId: expect.any(String)
       })
 
       expect(agentsService.updateById).toHaveBeenCalledWith('agent-1', {
@@ -683,7 +716,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Validation error',
         message: 'Permissions must be an array'
-      })
+      ,
+        correlationId: expect.any(String)})
       expect(agentsService.updateById).not.toHaveBeenCalled()
     })
 
@@ -697,7 +731,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Validation error',
         message: 'Permissions must be an array'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
 
     it('should return 404 for non-existent agent', async () => {
@@ -712,7 +747,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Not found',
         message: 'Agent not found'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
 
     it('should handle database errors', async () => {
@@ -727,7 +763,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to update agent permissions'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -743,7 +780,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { valid: true },
-        message: 'API key is valid'
+        message: 'API key is valid',
+        correlationId: expect.any(String)
       })
       expect(agentsService.verifyApiKey).toHaveBeenCalledWith('agent-1', 'valid-api-key')
     })
@@ -759,7 +797,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { valid: false },
-        message: 'API key is invalid'
+        message: 'API key is invalid',
+        correlationId: expect.any(String)
       })
     })
 
@@ -773,7 +812,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Validation error',
         message: 'API key is required'
-      })
+      ,
+        correlationId: expect.any(String)})
       expect(agentsService.verifyApiKey).not.toHaveBeenCalled()
     })
 
@@ -789,7 +829,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to verify API key'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 
@@ -820,7 +861,8 @@ describe('Agents API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: mockStats,
-        message: 'Agent statistics retrieved'
+        message: 'Agent statistics retrieved',
+        correlationId: expect.any(String)
       })
       expect(agentsService.getAgentStats).toHaveBeenCalledTimes(1)
     })
@@ -836,7 +878,8 @@ describe('Agents API Integration Tests', () => {
         success: false,
         error: 'Internal server error',
         message: 'Failed to fetch agent statistics'
-      })
+      ,
+        correlationId: expect.any(String)})
     })
   })
 })

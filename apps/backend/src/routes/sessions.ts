@@ -42,14 +42,16 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       data: sessions,
-      message: `Found ${sessions.length} sessions`
+      message: `Found ${sessions.length} sessions`,
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error fetching sessions:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to fetch sessions'
+      message: 'Failed to fetch sessions',
+      correlationId: randomUUID()
     })
   }
 })
@@ -65,14 +67,16 @@ router.get('/stats', async (req, res) => {
     res.json({
       success: true,
       data: stats,
-      message: 'Session statistics retrieved'
+      message: 'Session statistics retrieved',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error fetching session stats:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to fetch session statistics'
+      message: 'Failed to fetch session statistics',
+      correlationId: randomUUID()
     })
   }
 })
@@ -97,21 +101,24 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: randomUUID()
       })
     }
 
     res.json({
       success: true,
       data: session,
-      message: 'Session found'
+      message: 'Session found',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error fetching session:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to fetch session'
+      message: 'Failed to fetch session',
+      correlationId: randomUUID()
     })
   }
 })
@@ -132,7 +139,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Agent ID is required'
+        message: 'Agent ID is required',
+        correlationId: randomUUID()
       })
     }
 
@@ -142,7 +150,8 @@ router.post('/', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: randomUUID()
       })
     }
 
@@ -150,7 +159,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Agent is not active'
+        message: 'Agent is not active',
+        correlationId: randomUUID()
       })
     }
 
@@ -159,14 +169,16 @@ router.post('/', async (req, res) => {
     res.status(201).json({
       success: true,
       data: session,
-      message: 'Session created successfully'
+      message: 'Session created successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error creating session:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to create session'
+      message: 'Failed to create session',
+      correlationId: randomUUID()
     })
   }
 })
@@ -184,7 +196,8 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Valid metadata object is required'
+        message: 'Valid metadata object is required',
+        correlationId: randomUUID()
       })
     }
 
@@ -193,21 +206,24 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: randomUUID()
       })
     }
 
     res.json({
       success: true,
       data: updatedSession,
-      message: 'Session updated successfully'
+      message: 'Session updated successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error updating session:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to update session'
+      message: 'Failed to update session',
+      correlationId: randomUUID()
     })
   }
 })
@@ -225,21 +241,24 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: randomUUID()
       })
     }
 
     res.json({
       success: true,
       data: terminatedSession,
-      message: 'Session terminated successfully'
+      message: 'Session terminated successfully',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error terminating session:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to terminate session'
+      message: 'Failed to terminate session',
+      correlationId: randomUUID()
     })
   }
 })
@@ -269,14 +288,16 @@ router.post('/:id/validate', async (req, res) => {
         valid: true,
         session: validation.session
       },
-      message: 'Session is valid'
+      message: 'Session is valid',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error validating session:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to validate session'
+      message: 'Failed to validate session',
+      correlationId: randomUUID()
     })
   }
 })
@@ -294,7 +315,8 @@ router.post('/:id/extend', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        message: 'Additional minutes must be between 1 and 1440 (24 hours)'
+        message: 'Additional minutes must be between 1 and 1440 (24 hours)',
+        correlationId: randomUUID()
       })
     }
 
@@ -303,21 +325,24 @@ router.post('/:id/extend', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Session not found or not active'
+        message: 'Session not found or not active',
+        correlationId: randomUUID()
       })
     }
 
     res.json({
       success: true,
       data: extendedSession,
-      message: `Session extended by ${additionalMinutes} minutes`
+      message: `Session extended by ${additionalMinutes} minutes`,
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error extending session:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to extend session'
+      message: 'Failed to extend session',
+      correlationId: randomUUID()
     })
   }
 })
@@ -336,21 +361,24 @@ router.post('/:id/activity', async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: randomUUID()
       })
     }
 
     res.json({
       success: true,
       data: updatedSession,
-      message: 'Session activity updated'
+      message: 'Session activity updated',
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error updating session activity:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to update session activity'
+      message: 'Failed to update session activity',
+      correlationId: randomUUID()
     })
   }
 })
@@ -366,14 +394,16 @@ router.post('/cleanup', async (req, res) => {
     res.json({
       success: true,
       data: { cleanedCount },
-      message: `Cleaned up ${cleanedCount} expired sessions`
+      message: `Cleaned up ${cleanedCount} expired sessions`,
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error cleaning up sessions:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to cleanup expired sessions'
+      message: 'Failed to cleanup expired sessions',
+      correlationId: randomUUID()
     })
   }
 })
@@ -391,14 +421,16 @@ router.delete('/agent/:agentId', async (req, res) => {
     res.json({
       success: true,
       data: { terminatedCount },
-      message: `Terminated ${terminatedCount} sessions for agent`
+      message: `Terminated ${terminatedCount} sessions for agent`,
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error terminating agent sessions:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to terminate agent sessions'
+      message: 'Failed to terminate agent sessions',
+      correlationId: randomUUID()
     })
   }
 })
@@ -416,14 +448,16 @@ router.delete('/user/:userId', async (req, res) => {
     res.json({
       success: true,
       data: { terminatedCount },
-      message: `Terminated ${terminatedCount} sessions for user`
+      message: `Terminated ${terminatedCount} sessions for user`,
+      correlationId: randomUUID()
     })
   } catch (error) {
     console.error('Error terminating user sessions:', error)
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'Failed to terminate user sessions'
+      message: 'Failed to terminate user sessions',
+      correlationId: randomUUID()
     })
   }
 })

@@ -166,7 +166,12 @@ export class ItemsController extends BaseCRUDController<Item, ItemCreateSchema, 
       } else {
         // Get items with pagination
         const offset = (page - 1) * limit
-        items = await itemsService.findAll({ limit, offset, ...filters })
+        items = await itemsService.findAll({
+          orderBy: [{ field: 'createdAt', direction: 'desc' }],
+          limit,
+          offset,
+          ...filters
+        })
         total = await itemsService.count()
       }
 
@@ -303,11 +308,13 @@ export class ItemsController extends BaseCRUDController<Item, ItemCreateSchema, 
       // Check if item can be started (dependencies completed)
       const canStart = await itemsService.canStart(id)
       if (!canStart) {
-        this.handleValidationError(
-          res, 
-          ['Cannot start item: dependencies not completed'], 
+        res.status(400).json(this.createResponse(
+          false,
+          null,
+          'Cannot start item: dependencies not completed',
+          'Dependency error',
           context.correlationId
-        )
+        ))
         return
       }
 
@@ -419,6 +426,75 @@ export class ItemsController extends BaseCRUDController<Item, ItemCreateSchema, 
       ))
     } catch (error) {
       this.handleServerError(res, error as Error, 'duplicate', context.correlationId)
+    }
+  }
+
+  /**
+   * Search items
+   */
+  async search(req: Request, res: Response): Promise<void> {
+    const context = this.getContext(req, 'read')
+
+    try {
+      // Validate query parameters
+      const queryValidation = this.validateData(req.query, itemSchemas.searchQuery, 'query')
+      if (!queryValidation.success) {
+        this.handleValidationError(res, queryValidation.errors, context.correlationId)
+        return
+      }
+
+      const { q, listId, status, limit = 50 } = queryValidation.data
+
+      const results = await itemsService.search(q, {
+        listId,
+        status,
+        limit
+      })
+
+      res.json(this.createResponse(
+        true,
+        results,
+        `Found ${results.length} items matching "${q}"`,
+        undefined,
+        context.correlationId
+      ))
+    } catch (error) {
+      this.handleServerError(res, error as Error, 'search', context.correlationId)
+    }
+  }
+
+  /**
+   * Get item statistics
+   */
+  async getStats(req: Request, res: Response): Promise<void> {
+    const context = this.getContext(req, 'read')
+
+    try {
+      // Validate query parameters
+      const queryValidation = this.validateData(req.query, itemSchemas.statsQuery, 'query')
+      if (!queryValidation.success) {
+        this.handleValidationError(res, queryValidation.errors, context.correlationId)
+        return
+      }
+
+      const { listId } = queryValidation.data
+
+      let stats
+      if (listId) {
+        stats = await itemsService.getListStats(listId)
+      } else {
+        stats = await itemsService.getGlobalStats()
+      }
+
+      res.json(this.createResponse(
+        true,
+        stats,
+        'Item statistics retrieved',
+        undefined,
+        context.correlationId
+      ))
+    } catch (error) {
+      this.handleServerError(res, error as Error, 'fetch', context.correlationId)
     }
   }
 }

@@ -47,19 +47,19 @@ describe('Sessions API Integration Tests', () => {
   describe('GET /api/sessions', () => {
     it('should get all sessions with default pagination', async () => {
       const mockSessions = [
-        { 
-          id: 'session-1', 
-          agentId: 'agent-1', 
-          userId: 'user-1',
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          agentId: '550e8400-e29b-41d4-a716-446655440011',
+          userId: '550e8400-e29b-41d4-a716-446655440021',
           status: 'active',
           createdAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
           lastActivity: new Date().toISOString()
         },
-        { 
-          id: 'session-2', 
-          agentId: 'agent-2', 
-          userId: 'user-2',
+        {
+          id: '550e8400-e29b-41d4-a716-446655440002',
+          agentId: '550e8400-e29b-41d4-a716-446655440012',
+          userId: '550e8400-e29b-41d4-a716-446655440022',
           status: 'active',
           createdAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
@@ -76,7 +76,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: mockSessions,
-        message: 'Found 2 sessions'
+        message: 'Found 2 sessions',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.findAll).toHaveBeenCalledWith({
         limit: 50,
@@ -117,21 +118,21 @@ describe('Sessions API Integration Tests', () => {
 
     it('should filter sessions by agent ID', async () => {
       const mockSessions = [
-        { 
-          id: 'session-1', 
-          agentId: 'agent-1', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          agentId: '550e8400-e29b-41d4-a716-446655440011',
           status: 'active'
         }
       ]
-      
+
       ;(sessionsService.findByAgentId as jest.Mock).mockResolvedValue(mockSessions)
 
       const response = await request(app)
-        .get('/api/sessions?agentId=agent-1')
+        .get('/api/sessions?agentId=550e8400-e29b-41d4-a716-446655440011')
         .expect(200)
 
       expect(response.body.data).toEqual(mockSessions)
-      expect(sessionsService.findByAgentId).toHaveBeenCalledWith('agent-1', false)
+      expect(sessionsService.findByAgentId).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440011', false)
     })
 
     it('should filter sessions by agent ID including expired when status=all', async () => {
@@ -139,35 +140,35 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.findByAgentId as jest.Mock).mockResolvedValue(mockSessions)
 
       await request(app)
-        .get('/api/sessions?agentId=agent-1&status=all')
+        .get('/api/sessions?agentId=550e8400-e29b-41d4-a716-446655440011&status=all')
         .expect(200)
 
-      expect(sessionsService.findByAgentId).toHaveBeenCalledWith('agent-1', true)
+      expect(sessionsService.findByAgentId).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440011', true)
     })
 
     it('should filter sessions by user ID', async () => {
       const mockSessions = [
-        { 
-          id: 'session-1', 
-          userId: 'user-1', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          userId: '550e8400-e29b-41d4-a716-446655440021',
           status: 'active'
         }
       ]
-      
+
       ;(sessionsService.findByUserId as jest.Mock).mockResolvedValue(mockSessions)
 
       const response = await request(app)
-        .get('/api/sessions?userId=user-1')
+        .get('/api/sessions?userId=550e8400-e29b-41d4-a716-446655440021')
         .expect(200)
 
       expect(response.body.data).toEqual(mockSessions)
-      expect(sessionsService.findByUserId).toHaveBeenCalledWith('user-1', false)
+      expect(sessionsService.findByUserId).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440021', false)
     })
 
     it('should filter active sessions', async () => {
       const mockSessions = [
-        { 
-          id: 'session-1', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
           status: 'active'
         }
       ]
@@ -184,8 +185,8 @@ describe('Sessions API Integration Tests', () => {
 
     it('should filter expired sessions', async () => {
       const mockSessions = [
-        { 
-          id: 'session-1', 
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
           status: 'expired'
         }
       ]
@@ -232,7 +233,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to fetch sessions'
+        message: 'Failed to fetch sessions',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -261,7 +263,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: mockStats,
-        message: 'Session statistics retrieved'
+        message: 'Session statistics retrieved',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.getSessionStats).toHaveBeenCalledTimes(1)
     })
@@ -276,7 +279,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to fetch session statistics'
+        message: 'Failed to fetch session statistics',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -284,9 +288,9 @@ describe('Sessions API Integration Tests', () => {
   describe('GET /api/sessions/:id', () => {
     it('should get a specific session by ID', async () => {
       const mockSession = {
-        id: 'session-1',
-        agentId: 'agent-1',
-        userId: 'user-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
+        userId: '550e8400-e29b-41d4-a716-446655440021',
         status: 'active',
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 3600000).toISOString(),
@@ -297,24 +301,25 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.findById as jest.Mock).mockResolvedValue(mockSession)
 
       const response = await request(app)
-        .get('/api/sessions/session-1')
+        .get('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: mockSession,
-        message: 'Session found'
+        message: 'Session found',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.findById).toHaveBeenCalledWith('session-1')
+      expect(sessionsService.findById).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001')
     })
 
     it('should get session with agent details when include=agent', async () => {
       const mockSessionWithAgent = {
-        id: 'session-1',
-        agentId: 'agent-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
         status: 'active',
         agent: {
-          id: 'agent-1',
+          id: '550e8400-e29b-41d4-a716-446655440011',
           name: 'Test Agent',
           role: 'executor'
         }
@@ -323,24 +328,25 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.findWithAgent as jest.Mock).mockResolvedValue(mockSessionWithAgent)
 
       const response = await request(app)
-        .get('/api/sessions/session-1?include=agent')
+        .get('/api/sessions/550e8400-e29b-41d4-a716-446655440001?include=agent')
         .expect(200)
 
       expect(response.body.data).toEqual(mockSessionWithAgent)
-      expect(sessionsService.findWithAgent).toHaveBeenCalledWith('session-1')
+      expect(sessionsService.findWithAgent).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001')
     })
 
     it('should return 404 for non-existent session', async () => {
       ;(sessionsService.findById as jest.Mock).mockResolvedValue(null)
 
       const response = await request(app)
-        .get('/api/sessions/nonexistent')
+        .get('/api/sessions/550e8400-e29b-41d4-a716-446655440000')
         .expect(404)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: expect.any(String)
       })
     })
 
@@ -348,13 +354,14 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.findById as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .get('/api/sessions/session-1')
+        .get('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to fetch session'
+        message: 'Failed to fetch session',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -362,22 +369,22 @@ describe('Sessions API Integration Tests', () => {
   describe('POST /api/sessions', () => {
     it('should create a new session', async () => {
       const newSessionData = {
-        agentId: 'agent-1',
-        userId: 'user-1',
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
+        userId: '550e8400-e29b-41d4-a716-446655440021',
         expirationMinutes: 120
       }
 
       const mockAgent = {
-        id: 'agent-1',
+        id: '550e8400-e29b-41d4-a716-446655440011',
         name: 'Test Agent',
         role: 'executor',
         status: 'active'
       }
 
       const createdSession = {
-        id: 'session-1',
-        agentId: 'agent-1',
-        userId: 'user-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
+        userId: '550e8400-e29b-41d4-a716-446655440021',
         status: 'active',
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 7200000).toISOString(),
@@ -396,27 +403,28 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: createdSession,
-        message: 'Session created successfully'
+        message: 'Session created successfully',
+        correlationId: expect.any(String)
       })
 
-      expect(agentsService.findById).toHaveBeenCalledWith('agent-1')
-      expect(sessionsService.createSession).toHaveBeenCalledWith('agent-1', 'user-1', 120)
+      expect(agentsService.findById).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440011')
+      expect(sessionsService.createSession).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440011', '550e8400-e29b-41d4-a716-446655440021', 120)
     })
 
     it('should create session with default expiration when not specified', async () => {
       const newSessionData = {
-        agentId: 'agent-1',
-        userId: 'user-1'
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
+        userId: '550e8400-e29b-41d4-a716-446655440021'
       }
 
       const mockAgent = {
-        id: 'agent-1',
+        id: '550e8400-e29b-41d4-a716-446655440011',
         status: 'active'
       }
 
       const createdSession = {
-        id: 'session-1',
-        agentId: 'agent-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
         status: 'active'
       }
 
@@ -428,19 +436,20 @@ describe('Sessions API Integration Tests', () => {
         .send(newSessionData)
         .expect(201)
 
-      expect(sessionsService.createSession).toHaveBeenCalledWith('agent-1', 'user-1', 60)
+      expect(sessionsService.createSession).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440011', '550e8400-e29b-41d4-a716-446655440021', 60)
     })
 
     it('should return 400 for missing agent ID', async () => {
       const response = await request(app)
         .post('/api/sessions')
-        .send({ userId: 'user-1' })
+        .send({ userId: '550e8400-e29b-41d4-a716-446655440021' })
         .expect(400)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Validation error',
-        message: 'Agent ID is required'
+        message: 'Agent ID is required',
+        correlationId: expect.any(String)
       })
       expect(agentsService.findById).not.toHaveBeenCalled()
     })
@@ -450,19 +459,20 @@ describe('Sessions API Integration Tests', () => {
 
       const response = await request(app)
         .post('/api/sessions')
-        .send({ agentId: 'nonexistent' })
+        .send({ agentId: '550e8400-e29b-41d4-a716-446655440000' })
         .expect(404)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Not found',
-        message: 'Agent not found'
+        message: 'Agent not found',
+        correlationId: expect.any(String)
       })
     })
 
     it('should return 400 for inactive agent', async () => {
       const mockAgent = {
-        id: 'agent-1',
+        id: '550e8400-e29b-41d4-a716-446655440011',
         status: 'inactive'
       }
 
@@ -470,31 +480,33 @@ describe('Sessions API Integration Tests', () => {
 
       const response = await request(app)
         .post('/api/sessions')
-        .send({ agentId: 'agent-1' })
+        .send({ agentId: '550e8400-e29b-41d4-a716-446655440011' })
         .expect(400)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Validation error',
-        message: 'Agent is not active'
+        message: 'Agent is not active',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.createSession).not.toHaveBeenCalled()
     })
 
     it('should handle database errors during creation', async () => {
-      const mockAgent = { id: 'agent-1', status: 'active' }
+      const mockAgent = { id: '550e8400-e29b-41d4-a716-446655440011', status: 'active' }
       ;(agentsService.findById as jest.Mock).mockResolvedValue(mockAgent)
       ;(sessionsService.createSession as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
         .post('/api/sessions')
-        .send({ agentId: 'agent-1' })
+        .send({ agentId: '550e8400-e29b-41d4-a716-446655440011' })
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to create session'
+        message: 'Failed to create session',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -510,8 +522,8 @@ describe('Sessions API Integration Tests', () => {
       }
 
       const updatedSession = {
-        id: 'session-1',
-        agentId: 'agent-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        agentId: '550e8400-e29b-41d4-a716-446655440011',
         status: 'active',
         metadata: updateData.metadata,
         updatedAt: new Date().toISOString()
@@ -520,43 +532,46 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.updateMetadata as jest.Mock).mockResolvedValue(updatedSession)
 
       const response = await request(app)
-        .put('/api/sessions/session-1')
+        .put('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .send(updateData)
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: updatedSession,
-        message: 'Session updated successfully'
+        message: 'Session updated successfully',
+        correlationId: expect.any(String)
       })
 
-      expect(sessionsService.updateMetadata).toHaveBeenCalledWith('session-1', updateData.metadata)
+      expect(sessionsService.updateMetadata).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001', updateData.metadata)
     })
 
     it('should return 400 for missing metadata', async () => {
       const response = await request(app)
-        .put('/api/sessions/session-1')
+        .put('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .send({})
         .expect(400)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Validation error',
-        message: 'Valid metadata object is required'
+        message: 'Valid metadata object is required',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.updateMetadata).not.toHaveBeenCalled()
     })
 
     it('should return 400 for invalid metadata type', async () => {
       const response = await request(app)
-        .put('/api/sessions/session-1')
+        .put('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .send({ metadata: 'invalid' })
         .expect(400)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Validation error',
-        message: 'Valid metadata object is required'
+        message: 'Valid metadata object is required',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.updateMetadata).not.toHaveBeenCalled()
     })
@@ -565,14 +580,15 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.updateMetadata as jest.Mock).mockResolvedValue(null)
 
       const response = await request(app)
-        .put('/api/sessions/nonexistent')
+        .put('/api/sessions/550e8400-e29b-41d4-a716-446655440000')
         .send({ metadata: { key: 'value' } })
         .expect(404)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: expect.any(String)
       })
     })
 
@@ -580,14 +596,15 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.updateMetadata as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .put('/api/sessions/session-1')
+        .put('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .send({ metadata: { key: 'value' } })
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to update session'
+        message: 'Failed to update session',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -595,7 +612,7 @@ describe('Sessions API Integration Tests', () => {
   describe('DELETE /api/sessions/:id', () => {
     it('should terminate an existing session', async () => {
       const terminatedSession = {
-        id: 'session-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
         status: 'terminated',
         terminatedAt: new Date().toISOString()
       }
@@ -603,28 +620,30 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.terminateSession as jest.Mock).mockResolvedValue(terminatedSession)
 
       const response = await request(app)
-        .delete('/api/sessions/session-1')
+        .delete('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: terminatedSession,
-        message: 'Session terminated successfully'
+        message: 'Session terminated successfully',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.terminateSession).toHaveBeenCalledWith('session-1')
+      expect(sessionsService.terminateSession).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001')
     })
 
     it('should return 404 for non-existent session', async () => {
       ;(sessionsService.terminateSession as jest.Mock).mockResolvedValue(null)
 
       const response = await request(app)
-        .delete('/api/sessions/nonexistent')
+        .delete('/api/sessions/550e8400-e29b-41d4-a716-446655440000')
         .expect(404)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: expect.any(String)
       })
     })
 
@@ -632,13 +651,14 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.terminateSession as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .delete('/api/sessions/session-1')
+        .delete('/api/sessions/550e8400-e29b-41d4-a716-446655440001')
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to terminate session'
+        message: 'Failed to terminate session',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -646,7 +666,7 @@ describe('Sessions API Integration Tests', () => {
   describe('POST /api/sessions/:id/validate', () => {
     it('should validate a valid session', async () => {
       const mockSession = {
-        id: 'session-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
         status: 'active',
         expiresAt: new Date(Date.now() + 3600000).toISOString()
       }
@@ -659,7 +679,7 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.validateSession as jest.Mock).mockResolvedValue(validation)
 
       const response = await request(app)
-        .post('/api/sessions/session-1/validate')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/validate')
         .expect(200)
 
       expect(response.body).toEqual({
@@ -668,9 +688,10 @@ describe('Sessions API Integration Tests', () => {
           valid: true,
           session: mockSession
         },
-        message: 'Session is valid'
+        message: 'Session is valid',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.validateSession).toHaveBeenCalledWith('session-1')
+      expect(sessionsService.validateSession).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001')
     })
 
     it('should return 401 for invalid session', async () => {
@@ -682,7 +703,7 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.validateSession as jest.Mock).mockResolvedValue(validation)
 
       const response = await request(app)
-        .post('/api/sessions/session-1/validate')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/validate')
         .expect(401)
 
       expect(response.body).toEqual({
@@ -702,7 +723,7 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.validateSession as jest.Mock).mockResolvedValue(validation)
 
       const response = await request(app)
-        .post('/api/sessions/nonexistent/validate')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440000/validate')
         .expect(401)
 
       expect(response.body).toEqual({
@@ -717,13 +738,14 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.validateSession as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .post('/api/sessions/session-1/validate')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/validate')
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to validate session'
+        message: 'Failed to validate session',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -731,7 +753,7 @@ describe('Sessions API Integration Tests', () => {
   describe('POST /api/sessions/:id/extend', () => {
     it('should extend session expiration', async () => {
       const extendedSession = {
-        id: 'session-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
         status: 'active',
         expiresAt: new Date(Date.now() + 7200000).toISOString()
       }
@@ -739,54 +761,57 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.extendSession as jest.Mock).mockResolvedValue(extendedSession)
 
       const response = await request(app)
-        .post('/api/sessions/session-1/extend')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/extend')
         .send({ additionalMinutes: 120 })
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: extendedSession,
-        message: 'Session extended by 120 minutes'
+        message: 'Session extended by 120 minutes',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.extendSession).toHaveBeenCalledWith('session-1', 120)
+      expect(sessionsService.extendSession).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001', 120)
     })
 
     it('should extend session with default minutes when not specified', async () => {
-      const extendedSession = { id: 'session-1', status: 'active' }
+      const extendedSession = { id: '550e8400-e29b-41d4-a716-446655440001', status: 'active' }
       ;(sessionsService.extendSession as jest.Mock).mockResolvedValue(extendedSession)
 
       await request(app)
-        .post('/api/sessions/session-1/extend')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/extend')
         .send({})
         .expect(200)
 
-      expect(sessionsService.extendSession).toHaveBeenCalledWith('session-1', 60)
+      expect(sessionsService.extendSession).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001', 60)
     })
 
     it('should return 400 for invalid additional minutes (too low)', async () => {
       const response = await request(app)
-        .post('/api/sessions/session-1/extend')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/extend')
         .send({ additionalMinutes: 0 })
         .expect(400)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Validation error',
-        message: 'Additional minutes must be between 1 and 1440 (24 hours)'
+        message: 'Additional minutes must be between 1 and 1440 (24 hours)',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.extendSession).not.toHaveBeenCalled()
     })
 
     it('should return 400 for invalid additional minutes (too high)', async () => {
       const response = await request(app)
-        .post('/api/sessions/session-1/extend')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/extend')
         .send({ additionalMinutes: 1500 })
         .expect(400)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Validation error',
-        message: 'Additional minutes must be between 1 and 1440 (24 hours)'
+        message: 'Additional minutes must be between 1 and 1440 (24 hours)',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.extendSession).not.toHaveBeenCalled()
     })
@@ -795,14 +820,15 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.extendSession as jest.Mock).mockResolvedValue(null)
 
       const response = await request(app)
-        .post('/api/sessions/nonexistent/extend')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440000/extend')
         .send({ additionalMinutes: 60 })
         .expect(404)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Not found',
-        message: 'Session not found or not active'
+        message: 'Session not found or not active',
+        correlationId: expect.any(String)
       })
     })
 
@@ -810,14 +836,15 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.extendSession as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .post('/api/sessions/session-1/extend')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/extend')
         .send({ additionalMinutes: 60 })
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to extend session'
+        message: 'Failed to extend session',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -825,7 +852,7 @@ describe('Sessions API Integration Tests', () => {
   describe('POST /api/sessions/:id/activity', () => {
     it('should update session activity', async () => {
       const updatedSession = {
-        id: 'session-1',
+        id: '550e8400-e29b-41d4-a716-446655440001',
         status: 'active',
         lastActivity: new Date().toISOString()
       }
@@ -833,42 +860,44 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.updateActivity as jest.Mock).mockResolvedValue(updatedSession)
 
       const response = await request(app)
-        .post('/api/sessions/session-1/activity')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/activity')
         .send({ extendMinutes: 30 })
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: updatedSession,
-        message: 'Session activity updated'
+        message: 'Session activity updated',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.updateActivity).toHaveBeenCalledWith('session-1', 30)
+      expect(sessionsService.updateActivity).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001', 30)
     })
 
     it('should update activity with default extend minutes', async () => {
-      const updatedSession = { id: 'session-1', status: 'active' }
+      const updatedSession = { id: '550e8400-e29b-41d4-a716-446655440001', status: 'active' }
       ;(sessionsService.updateActivity as jest.Mock).mockResolvedValue(updatedSession)
 
       await request(app)
-        .post('/api/sessions/session-1/activity')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/activity')
         .send({})
         .expect(200)
 
-      expect(sessionsService.updateActivity).toHaveBeenCalledWith('session-1', 60)
+      expect(sessionsService.updateActivity).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440001', 60)
     })
 
     it('should return 404 for non-existent session', async () => {
       ;(sessionsService.updateActivity as jest.Mock).mockResolvedValue(null)
 
       const response = await request(app)
-        .post('/api/sessions/nonexistent/activity')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440000/activity')
         .send({})
         .expect(404)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Not found',
-        message: 'Session not found'
+        message: 'Session not found',
+        correlationId: expect.any(String)
       })
     })
 
@@ -876,14 +905,15 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.updateActivity as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .post('/api/sessions/session-1/activity')
+        .post('/api/sessions/550e8400-e29b-41d4-a716-446655440001/activity')
         .send({})
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to update session activity'
+        message: 'Failed to update session activity',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -899,7 +929,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { cleanedCount: 5 },
-        message: 'Cleaned up 5 expired sessions'
+        message: 'Cleaned up 5 expired sessions',
+        correlationId: expect.any(String)
       })
       expect(sessionsService.cleanupExpiredSessions).toHaveBeenCalledTimes(1)
     })
@@ -914,7 +945,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: true,
         data: { cleanedCount: 0 },
-        message: 'Cleaned up 0 expired sessions'
+        message: 'Cleaned up 0 expired sessions',
+        correlationId: expect.any(String)
       })
     })
 
@@ -928,7 +960,8 @@ describe('Sessions API Integration Tests', () => {
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to cleanup expired sessions'
+        message: 'Failed to cleanup expired sessions',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -938,28 +971,30 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.terminateAgentSessions as jest.Mock).mockResolvedValue(3)
 
       const response = await request(app)
-        .delete('/api/sessions/agent/agent-1')
+        .delete('/api/sessions/agent/550e8400-e29b-41d4-a716-446655440011')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: { terminatedCount: 3 },
-        message: 'Terminated 3 sessions for agent'
+        message: 'Terminated 3 sessions for agent',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.terminateAgentSessions).toHaveBeenCalledWith('agent-1')
+      expect(sessionsService.terminateAgentSessions).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440011')
     })
 
     it('should handle when no sessions to terminate', async () => {
       ;(sessionsService.terminateAgentSessions as jest.Mock).mockResolvedValue(0)
 
       const response = await request(app)
-        .delete('/api/sessions/agent/agent-1')
+        .delete('/api/sessions/agent/550e8400-e29b-41d4-a716-446655440011')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: { terminatedCount: 0 },
-        message: 'Terminated 0 sessions for agent'
+        message: 'Terminated 0 sessions for agent',
+        correlationId: expect.any(String)
       })
     })
 
@@ -967,13 +1002,14 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.terminateAgentSessions as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .delete('/api/sessions/agent/agent-1')
+        .delete('/api/sessions/agent/550e8400-e29b-41d4-a716-446655440011')
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to terminate agent sessions'
+        message: 'Failed to terminate agent sessions',
+        correlationId: expect.any(String)
       })
     })
   })
@@ -983,28 +1019,30 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.terminateUserSessions as jest.Mock).mockResolvedValue(2)
 
       const response = await request(app)
-        .delete('/api/sessions/user/user-1')
+        .delete('/api/sessions/user/550e8400-e29b-41d4-a716-446655440021')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: { terminatedCount: 2 },
-        message: 'Terminated 2 sessions for user'
+        message: 'Terminated 2 sessions for user',
+        correlationId: expect.any(String)
       })
-      expect(sessionsService.terminateUserSessions).toHaveBeenCalledWith('user-1')
+      expect(sessionsService.terminateUserSessions).toHaveBeenCalledWith('550e8400-e29b-41d4-a716-446655440021')
     })
 
     it('should handle when no sessions to terminate', async () => {
       ;(sessionsService.terminateUserSessions as jest.Mock).mockResolvedValue(0)
 
       const response = await request(app)
-        .delete('/api/sessions/user/user-1')
+        .delete('/api/sessions/user/550e8400-e29b-41d4-a716-446655440021')
         .expect(200)
 
       expect(response.body).toEqual({
         success: true,
         data: { terminatedCount: 0 },
-        message: 'Terminated 0 sessions for user'
+        message: 'Terminated 0 sessions for user',
+        correlationId: expect.any(String)
       })
     })
 
@@ -1012,13 +1050,14 @@ describe('Sessions API Integration Tests', () => {
       ;(sessionsService.terminateUserSessions as jest.Mock).mockRejectedValue(new Error('Database error'))
 
       const response = await request(app)
-        .delete('/api/sessions/user/user-1')
+        .delete('/api/sessions/user/550e8400-e29b-41d4-a716-446655440021')
         .expect(500)
 
       expect(response.body).toEqual({
         success: false,
         error: 'Internal server error',
-        message: 'Failed to terminate user sessions'
+        message: 'Failed to terminate user sessions',
+        correlationId: expect.any(String)
       })
     })
   })

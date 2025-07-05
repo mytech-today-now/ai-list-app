@@ -21,6 +21,32 @@ const router = Router()
 router.use(rateLimitValidation)
 
 /**
+ * GET /api/items/search
+ * Search items by query
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
+ */
+router.get('/search',
+  validateQuery(itemSchemas.searchQuery),
+  asyncHandler(itemsController.search.bind(itemsController))
+)
+
+/**
+ * GET /api/items/stats
+ * Get item statistics
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
+ */
+router.get('/stats',
+  validateQuery(itemSchemas.statsQuery),
+  asyncHandler(itemsController.getStats.bind(itemsController))
+)
+
+/**
  * GET /api/items
  * Get all items with optional filtering and pagination
  * Status Codes:
