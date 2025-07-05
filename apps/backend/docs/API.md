@@ -2,7 +2,7 @@
 
 ## Overview
 
-This API provides comprehensive CRUD operations for managing lists, items, agents, and sessions with proper HTTP status codes, validation, and error handling. It also includes bulk operations for efficient batch processing.
+This API provides comprehensive CRUD operations for managing lists, items, agents, and sessions with proper HTTP status codes, validation, and error handling. It also includes advanced search and filtering capabilities with pagination, bulk operations for efficient batch processing, and global search across multiple entity types.
 
 ## Base URL
 
@@ -798,3 +798,205 @@ All request data is validated using Zod schemas with detailed error messages. Va
 ## Correlation IDs
 
 Every request includes a correlation ID for tracking and debugging. If not provided in the `X-Correlation-ID` header, one is automatically generated.
+
+## Search and Filtering Endpoints
+
+### Global Search
+
+#### `GET /api/search`
+
+Search across multiple entity types (lists, items, agents) with comprehensive filtering.
+
+**Query Parameters:**
+
+- `q` (string, required): Search query
+- `types` (array, optional): Entity types to search (default: ["lists", "items"])
+- `fields` (array, optional): Fields to search in (default: ["title", "description", "name"])
+- `status` (array, optional): Filter by status values
+- `priority` (array, optional): Filter by priority values
+- `page` (number, optional): Page number (default: 1)
+- `limit` (number, optional): Items per page (default: 20, max: 100)
+- `sortBy` (string, optional): Sort field (default: "relevance")
+- `sortOrder` (string, optional): Sort order "asc" or "desc" (default: "desc")
+- `includeArchived` (string, optional): Include archived items "true" or "false" (default: "false")
+
+**Response:**
+
+- **200**: Success with search results
+- **400**: Invalid query parameters
+- **500**: Server error
+
+**Example:**
+
+```http
+GET /api/search?q=urgent&types=lists,items&priority=high,urgent&limit=10
+```
+
+#### `GET /api/search/suggestions`
+
+Get search suggestions based on partial query.
+
+**Query Parameters:**
+
+- `q` (string, required): Partial search query (minimum 2 characters)
+- `types` (array, optional): Entity types to search (default: ["lists", "items"])
+- `limit` (number, optional): Number of suggestions (default: 10, max: 20)
+
+**Response:**
+
+- **200**: Success with suggestions
+- **400**: Invalid query parameters
+- **500**: Server error
+
+#### `GET /api/search/stats`
+
+Get search statistics and analytics.
+
+**Response:**
+
+- **200**: Success with search statistics
+- **500**: Server error
+
+### Advanced Item Search
+
+#### `GET /api/items/advanced-search`
+
+Advanced search for items with comprehensive filtering options.
+
+**Query Parameters:**
+
+- `q` (string, required): Search query
+- `fields` (array, optional): Fields to search (default: ["title", "description"])
+- `listId` (string, optional): Filter by list ID
+- `status` (array, optional): Filter by status values
+- `priority` (array, optional): Filter by priority values
+- `assignedTo` (array, optional): Filter by assignee values
+- `tags` (array, optional): Filter by tag values
+- `dueDateFrom` (date, optional): Filter by due date from
+- `dueDateTo` (date, optional): Filter by due date to
+- `createdFrom` (date, optional): Filter by creation date from
+- `createdTo` (date, optional): Filter by creation date to
+- `updatedFrom` (date, optional): Filter by update date from
+- `updatedTo` (date, optional): Filter by update date to
+- `hasDescription` (string, optional): Filter by description presence "true" or "false"
+- `hasDueDate` (string, optional): Filter by due date presence "true" or "false"
+- `hasAssignee` (string, optional): Filter by assignee presence "true" or "false"
+- `overdue` (string, optional): Filter overdue items "true" or "false"
+- `dueSoon` (number, optional): Filter items due within hours (max: 168)
+- `estimatedDurationMin` (number, optional): Minimum estimated duration in minutes
+- `estimatedDurationMax` (number, optional): Maximum estimated duration in minutes
+- `page` (number, optional): Page number (default: 1)
+- `limit` (number, optional): Items per page (default: 20, max: 100)
+- `sortBy` (string, optional): Sort field (default: "updatedAt")
+- `sortOrder` (string, optional): Sort order "asc" or "desc" (default: "desc")
+- `includeCompleted` (string, optional): Include completed items "true" or "false" (default: "true")
+
+**Response:**
+
+- **200**: Success with filtered items and pagination
+- **400**: Invalid query parameters
+- **500**: Server error
+
+**Example:**
+
+```http
+GET /api/items/advanced-search?q=urgent&status=pending,in_progress&priority=high,urgent&dueSoon=24&sortBy=dueDate&sortOrder=asc
+```
+
+#### `GET /api/items/filter`
+
+Filter items without search query using the same parameters as advanced search (excluding `q` and `fields`).
+
+### Advanced List Search
+
+#### `GET /api/lists/advanced-search`
+
+Advanced search for lists with comprehensive filtering options.
+
+**Query Parameters:**
+
+- `q` (string, required): Search query
+- `fields` (array, optional): Fields to search (default: ["title", "description"])
+- `status` (array, optional): Filter by status values
+- `priority` (array, optional): Filter by priority values
+- `parentListId` (string, optional): Filter by parent list ID
+- `hasParent` (string, optional): Filter by parent presence "true" or "false"
+- `hasChildren` (string, optional): Filter by children presence "true" or "false"
+- `hasItems` (string, optional): Filter by items presence "true" or "false"
+- `itemCountMin` (number, optional): Minimum item count
+- `itemCountMax` (number, optional): Maximum item count
+- `completionRateMin` (number, optional): Minimum completion rate (0-100)
+- `completionRateMax` (number, optional): Maximum completion rate (0-100)
+- `createdFrom` (date, optional): Filter by creation date from
+- `createdTo` (date, optional): Filter by creation date to
+- `updatedFrom` (date, optional): Filter by update date from
+- `updatedTo` (date, optional): Filter by update date to
+- `page` (number, optional): Page number (default: 1)
+- `limit` (number, optional): Items per page (default: 20, max: 100)
+- `sortBy` (string, optional): Sort field (default: "updatedAt")
+- `sortOrder` (string, optional): Sort order "asc" or "desc" (default: "desc")
+- `includeArchived` (string, optional): Include archived lists "true" or "false" (default: "false")
+
+**Response:**
+
+- **200**: Success with filtered lists and pagination
+- **400**: Invalid query parameters
+- **500**: Server error
+
+**Example:**
+
+```http
+GET /api/lists/advanced-search?q=project&hasItems=true&itemCountMin=5&completionRateMin=50&sortBy=completionRate&sortOrder=desc
+```
+
+#### `GET /api/lists/filter`
+
+Filter lists without search query using the same parameters as advanced search (excluding `q` and `fields`).
+
+## Search Features
+
+### Relevance Scoring
+
+Global search results are ranked by relevance score based on:
+
+- Exact title matches (highest score)
+- Title starts with query
+- Title contains query
+- Description contains query
+- Shorter titles (more specific matches)
+
+### Pagination
+
+All search and filter endpoints support pagination with the following response format:
+
+```json
+{
+  "success": true,
+  "data": [...],
+  "message": "Found X results",
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  },
+  "correlationId": "uuid",
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+### Date Filtering
+
+Date parameters accept ISO 8601 format strings and are automatically parsed:
+
+- `2024-01-01`
+- `2024-01-01T10:00:00Z`
+- `2024-01-01T10:00:00.000Z`
+
+### Array Parameters
+
+Array parameters can be passed in multiple ways:
+
+- Comma-separated: `status=pending,in_progress`
+- Multiple parameters: `status=pending&status=in_progress`
+- JSON array (URL encoded): `status=["pending","in_progress"]`

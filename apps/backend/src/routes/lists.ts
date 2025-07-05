@@ -21,6 +21,32 @@ const router = Router()
 router.use(rateLimitValidation)
 
 /**
+ * GET /api/lists/advanced-search
+ * Advanced search lists with comprehensive filtering
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
+ */
+router.get('/advanced-search',
+  validateQuery(listSchemas.advancedSearchQuery),
+  asyncHandler(listsController.advancedSearch.bind(listsController))
+)
+
+/**
+ * GET /api/lists/filter
+ * Filter lists without search query
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
+ */
+router.get('/filter',
+  validateQuery(listSchemas.filterQuery),
+  asyncHandler(listsController.filter.bind(listsController))
+)
+
+/**
  * GET /api/lists
  * Get all lists with optional hierarchy and filtering
  * Status Codes:

@@ -34,6 +34,32 @@ router.get('/search',
 )
 
 /**
+ * GET /api/items/advanced-search
+ * Advanced search items with comprehensive filtering
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
+ */
+router.get('/advanced-search',
+  validateQuery(itemSchemas.advancedSearchQuery),
+  asyncHandler(itemsController.advancedSearch.bind(itemsController))
+)
+
+/**
+ * GET /api/items/filter
+ * Filter items without search query
+ * Status Codes:
+ *   200 - Success
+ *   400 - Invalid query parameters
+ *   500 - Server error
+ */
+router.get('/filter',
+  validateQuery(itemSchemas.filterQuery),
+  asyncHandler(itemsController.filter.bind(itemsController))
+)
+
+/**
  * GET /api/items/stats
  * Get item statistics
  * Status Codes:

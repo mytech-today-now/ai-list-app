@@ -4,12 +4,14 @@ export * from './lists'
 export * from './items'
 export * from './agents'
 export * from './sessions'
+export * from './global-search'
 
 // Export service instances for convenience
 export { listsService } from './lists'
 export { itemsService } from './items'
 export { agentsService } from './agents'
 export { sessionsService } from './sessions'
+export { globalSearchService } from './global-search'
 
 // Export types
 export type { PaginationOptions, PaginatedResult } from './base'

@@ -88,7 +88,7 @@ export class ItemsService extends BaseService<typeof itemsTable, Item, NewItem> 
   async search(query: string): Promise<Item[]> {
     const db = await this.getDb()
     const searchTerm = `%${query.toLowerCase()}%`
-    
+
     return await db
       .select()
       .from(itemsTable)
@@ -98,6 +98,406 @@ export class ItemsService extends BaseService<typeof itemsTable, Item, NewItem> 
         sql`LOWER(${itemsTable.tags}) LIKE ${searchTerm}`
       ))
       .orderBy(desc(itemsTable.updatedAt))
+  }
+
+  /**
+   * Advanced search with comprehensive filtering and pagination
+   */
+  async advancedSearch(options: {
+    query: string
+    fields?: string[]
+    listId?: string
+    status?: string[]
+    priority?: string[]
+    assignedTo?: string[]
+    tags?: string[]
+    dueDateFrom?: Date
+    dueDateTo?: Date
+    createdFrom?: Date
+    createdTo?: Date
+    updatedFrom?: Date
+    updatedTo?: Date
+    hasDescription?: boolean
+    hasDueDate?: boolean
+    hasAssignee?: boolean
+    overdue?: boolean
+    dueSoon?: number
+    estimatedDurationMin?: number
+    estimatedDurationMax?: number
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    includeCompleted?: boolean
+  }): Promise<{ items: Item[], total: number, page: number, totalPages: number }> {
+    const db = await this.getDb()
+    const {
+      query,
+      fields = ['title', 'description'],
+      listId,
+      status,
+      priority,
+      assignedTo,
+      tags,
+      dueDateFrom,
+      dueDateTo,
+      createdFrom,
+      createdTo,
+      updatedFrom,
+      updatedTo,
+      hasDescription,
+      hasDueDate,
+      hasAssignee,
+      overdue,
+      dueSoon,
+      estimatedDurationMin,
+      estimatedDurationMax,
+      page = 1,
+      limit = 20,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
+      includeCompleted = true
+    } = options
+
+    const searchTerm = `%${query.toLowerCase()}%`
+    const offset = (page - 1) * limit
+
+    // Build search conditions
+    const searchConditions = []
+    if (fields.includes('title')) {
+      searchConditions.push(sql`LOWER(${itemsTable.title}) LIKE ${searchTerm}`)
+    }
+    if (fields.includes('description')) {
+      searchConditions.push(sql`LOWER(${itemsTable.description}) LIKE ${searchTerm}`)
+    }
+    if (fields.includes('tags')) {
+      searchConditions.push(sql`LOWER(${itemsTable.tags}) LIKE ${searchTerm}`)
+    }
+
+    // Build filter conditions
+    const filterConditions = []
+
+    if (listId) {
+      filterConditions.push(eq(itemsTable.listId, listId))
+    }
+
+    if (status && status.length > 0) {
+      filterConditions.push(inArray(itemsTable.status, status))
+    } else if (!includeCompleted) {
+      filterConditions.push(sql`${itemsTable.status} != 'completed'`)
+    }
+
+    if (priority && priority.length > 0) {
+      filterConditions.push(inArray(itemsTable.priority, priority))
+    }
+
+    if (assignedTo && assignedTo.length > 0) {
+      filterConditions.push(inArray(itemsTable.assignedTo, assignedTo))
+    }
+
+    if (tags && tags.length > 0) {
+      const tagConditions = tags.map(tag =>
+        sql`LOWER(${itemsTable.tags}) LIKE ${`%${tag.toLowerCase()}%`}`
+      )
+      filterConditions.push(or(...tagConditions))
+    }
+
+    // Date range filters
+    if (dueDateFrom) {
+      filterConditions.push(sql`${itemsTable.dueDate} >= ${dueDateFrom}`)
+    }
+    if (dueDateTo) {
+      filterConditions.push(sql`${itemsTable.dueDate} <= ${dueDateTo}`)
+    }
+    if (createdFrom) {
+      filterConditions.push(sql`${itemsTable.createdAt} >= ${createdFrom}`)
+    }
+    if (createdTo) {
+      filterConditions.push(sql`${itemsTable.createdAt} <= ${createdTo}`)
+    }
+    if (updatedFrom) {
+      filterConditions.push(sql`${itemsTable.updatedAt} >= ${updatedFrom}`)
+    }
+    if (updatedTo) {
+      filterConditions.push(sql`${itemsTable.updatedAt} <= ${updatedTo}`)
+    }
+
+    // Boolean filters
+    if (hasDescription !== undefined) {
+      if (hasDescription) {
+        filterConditions.push(sql`${itemsTable.description} IS NOT NULL AND ${itemsTable.description} != ''`)
+      } else {
+        filterConditions.push(sql`${itemsTable.description} IS NULL OR ${itemsTable.description} = ''`)
+      }
+    }
+
+    if (hasDueDate !== undefined) {
+      if (hasDueDate) {
+        filterConditions.push(sql`${itemsTable.dueDate} IS NOT NULL`)
+      } else {
+        filterConditions.push(sql`${itemsTable.dueDate} IS NULL`)
+      }
+    }
+
+    if (hasAssignee !== undefined) {
+      if (hasAssignee) {
+        filterConditions.push(sql`${itemsTable.assignedTo} IS NOT NULL AND ${itemsTable.assignedTo} != ''`)
+      } else {
+        filterConditions.push(sql`${itemsTable.assignedTo} IS NULL OR ${itemsTable.assignedTo} = ''`)
+      }
+    }
+
+    // Special filters
+    if (overdue) {
+      const now = new Date()
+      filterConditions.push(and(
+        sql`${itemsTable.dueDate} IS NOT NULL`,
+        sql`${itemsTable.dueDate} < ${now}`,
+        sql`${itemsTable.status} != 'completed'`
+      ))
+    }
+
+    if (dueSoon) {
+      const soonDate = new Date(Date.now() + dueSoon * 60 * 60 * 1000) // hours to milliseconds
+      filterConditions.push(and(
+        sql`${itemsTable.dueDate} IS NOT NULL`,
+        sql`${itemsTable.dueDate} <= ${soonDate}`,
+        sql`${itemsTable.status} != 'completed'`
+      ))
+    }
+
+    // Duration filters
+    if (estimatedDurationMin !== undefined) {
+      filterConditions.push(sql`${itemsTable.estimatedDuration} >= ${estimatedDurationMin}`)
+    }
+    if (estimatedDurationMax !== undefined) {
+      filterConditions.push(sql`${itemsTable.estimatedDuration} <= ${estimatedDurationMax}`)
+    }
+
+    // Combine all conditions
+    const whereCondition = and(
+      or(...searchConditions),
+      ...filterConditions
+    )
+
+    // Build sort condition
+    const sortColumn = (itemsTable as any)[sortBy] || itemsTable.updatedAt
+    const sortDirection = sortOrder === 'asc' ? asc : desc
+
+    // Execute query for items
+    const items = await db
+      .select()
+      .from(itemsTable)
+      .where(whereCondition)
+      .orderBy(sortDirection(sortColumn))
+      .limit(limit)
+      .offset(offset)
+
+    // Execute count query
+    const countResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(itemsTable)
+      .where(whereCondition)
+
+    const total = countResult[0]?.count || 0
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      items,
+      total,
+      page,
+      totalPages
+    }
+  }
+
+  /**
+   * Filter items without search query
+   */
+  async filter(options: {
+    listId?: string
+    status?: string[]
+    priority?: string[]
+    assignedTo?: string[]
+    tags?: string[]
+    dueDateFrom?: Date
+    dueDateTo?: Date
+    createdFrom?: Date
+    createdTo?: Date
+    updatedFrom?: Date
+    updatedTo?: Date
+    hasDescription?: boolean
+    hasDueDate?: boolean
+    hasAssignee?: boolean
+    overdue?: boolean
+    dueSoon?: number
+    estimatedDurationMin?: number
+    estimatedDurationMax?: number
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    includeCompleted?: boolean
+  }): Promise<{ items: Item[], total: number, page: number, totalPages: number }> {
+    const db = await this.getDb()
+    const {
+      listId,
+      status,
+      priority,
+      assignedTo,
+      tags,
+      dueDateFrom,
+      dueDateTo,
+      createdFrom,
+      createdTo,
+      updatedFrom,
+      updatedTo,
+      hasDescription,
+      hasDueDate,
+      hasAssignee,
+      overdue,
+      dueSoon,
+      estimatedDurationMin,
+      estimatedDurationMax,
+      page = 1,
+      limit = 20,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
+      includeCompleted = true
+    } = options
+
+    const offset = (page - 1) * limit
+
+    // Build filter conditions
+    const filterConditions = []
+
+    if (listId) {
+      filterConditions.push(eq(itemsTable.listId, listId))
+    }
+
+    if (status && status.length > 0) {
+      filterConditions.push(inArray(itemsTable.status, status))
+    } else if (!includeCompleted) {
+      filterConditions.push(sql`${itemsTable.status} != 'completed'`)
+    }
+
+    if (priority && priority.length > 0) {
+      filterConditions.push(inArray(itemsTable.priority, priority))
+    }
+
+    if (assignedTo && assignedTo.length > 0) {
+      filterConditions.push(inArray(itemsTable.assignedTo, assignedTo))
+    }
+
+    if (tags && tags.length > 0) {
+      const tagConditions = tags.map(tag =>
+        sql`LOWER(${itemsTable.tags}) LIKE ${`%${tag.toLowerCase()}%`}`
+      )
+      filterConditions.push(or(...tagConditions))
+    }
+
+    // Date range filters
+    if (dueDateFrom) {
+      filterConditions.push(sql`${itemsTable.dueDate} >= ${dueDateFrom}`)
+    }
+    if (dueDateTo) {
+      filterConditions.push(sql`${itemsTable.dueDate} <= ${dueDateTo}`)
+    }
+    if (createdFrom) {
+      filterConditions.push(sql`${itemsTable.createdAt} >= ${createdFrom}`)
+    }
+    if (createdTo) {
+      filterConditions.push(sql`${itemsTable.createdAt} <= ${createdTo}`)
+    }
+    if (updatedFrom) {
+      filterConditions.push(sql`${itemsTable.updatedAt} >= ${updatedFrom}`)
+    }
+    if (updatedTo) {
+      filterConditions.push(sql`${itemsTable.updatedAt} <= ${updatedTo}`)
+    }
+
+    // Boolean filters
+    if (hasDescription !== undefined) {
+      if (hasDescription) {
+        filterConditions.push(sql`${itemsTable.description} IS NOT NULL AND ${itemsTable.description} != ''`)
+      } else {
+        filterConditions.push(sql`${itemsTable.description} IS NULL OR ${itemsTable.description} = ''`)
+      }
+    }
+
+    if (hasDueDate !== undefined) {
+      if (hasDueDate) {
+        filterConditions.push(sql`${itemsTable.dueDate} IS NOT NULL`)
+      } else {
+        filterConditions.push(sql`${itemsTable.dueDate} IS NULL`)
+      }
+    }
+
+    if (hasAssignee !== undefined) {
+      if (hasAssignee) {
+        filterConditions.push(sql`${itemsTable.assignedTo} IS NOT NULL AND ${itemsTable.assignedTo} != ''`)
+      } else {
+        filterConditions.push(sql`${itemsTable.assignedTo} IS NULL OR ${itemsTable.assignedTo} = ''`)
+      }
+    }
+
+    // Special filters
+    if (overdue) {
+      const now = new Date()
+      filterConditions.push(and(
+        sql`${itemsTable.dueDate} IS NOT NULL`,
+        sql`${itemsTable.dueDate} < ${now}`,
+        sql`${itemsTable.status} != 'completed'`
+      ))
+    }
+
+    if (dueSoon) {
+      const soonDate = new Date(Date.now() + dueSoon * 60 * 60 * 1000)
+      filterConditions.push(and(
+        sql`${itemsTable.dueDate} IS NOT NULL`,
+        sql`${itemsTable.dueDate} <= ${soonDate}`,
+        sql`${itemsTable.status} != 'completed'`
+      ))
+    }
+
+    // Duration filters
+    if (estimatedDurationMin !== undefined) {
+      filterConditions.push(sql`${itemsTable.estimatedDuration} >= ${estimatedDurationMin}`)
+    }
+    if (estimatedDurationMax !== undefined) {
+      filterConditions.push(sql`${itemsTable.estimatedDuration} <= ${estimatedDurationMax}`)
+    }
+
+    // Combine all conditions
+    const whereCondition = filterConditions.length > 0 ? and(...filterConditions) : undefined
+
+    // Build sort condition
+    const sortColumn = (itemsTable as any)[sortBy] || itemsTable.updatedAt
+    const sortDirection = sortOrder === 'asc' ? asc : desc
+
+    // Execute query for items
+    const items = await db
+      .select()
+      .from(itemsTable)
+      .where(whereCondition)
+      .orderBy(sortDirection(sortColumn))
+      .limit(limit)
+      .offset(offset)
+
+    // Execute count query
+    const countResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(itemsTable)
+      .where(whereCondition)
+
+    const total = countResult[0]?.count || 0
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      items,
+      total,
+      page,
+      totalPages
+    }
   }
 
   /**

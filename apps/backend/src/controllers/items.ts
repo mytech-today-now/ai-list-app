@@ -445,11 +445,7 @@ export class ItemsController extends BaseCRUDController<Item, ItemCreateSchema, 
 
       const { q, listId, status, limit = 50 } = queryValidation.data
 
-      const results = await itemsService.search(q, {
-        listId,
-        status,
-        limit
-      })
+      const results = await itemsService.search(q)
 
       res.json(this.createResponse(
         true,
@@ -460,6 +456,184 @@ export class ItemsController extends BaseCRUDController<Item, ItemCreateSchema, 
       ))
     } catch (error) {
       this.handleServerError(res, error as Error, 'search', context.correlationId)
+    }
+  }
+
+  /**
+   * Advanced search items with comprehensive filtering
+   */
+  async advancedSearch(req: Request, res: Response): Promise<void> {
+    const context = this.getContext(req, 'read')
+
+    try {
+      // Validate query parameters
+      const queryValidation = this.validateData(req.query, itemSchemas.advancedSearchQuery, 'query')
+      if (!queryValidation.success) {
+        this.handleValidationError(res, queryValidation.errors, context.correlationId)
+        return
+      }
+
+      const {
+        q,
+        fields,
+        listId,
+        status,
+        priority,
+        assignedTo,
+        tags,
+        dueDateFrom,
+        dueDateTo,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        hasDescription,
+        hasDueDate,
+        hasAssignee,
+        overdue,
+        dueSoon,
+        estimatedDurationMin,
+        estimatedDurationMax,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeCompleted
+      } = queryValidation.data
+
+      const result = await itemsService.advancedSearch({
+        query: q,
+        fields,
+        listId,
+        status,
+        priority,
+        assignedTo,
+        tags,
+        dueDateFrom,
+        dueDateTo,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        hasDescription: hasDescription === 'true' ? true : hasDescription === 'false' ? false : undefined,
+        hasDueDate: hasDueDate === 'true' ? true : hasDueDate === 'false' ? false : undefined,
+        hasAssignee: hasAssignee === 'true' ? true : hasAssignee === 'false' ? false : undefined,
+        overdue: overdue === 'true',
+        dueSoon,
+        estimatedDurationMin,
+        estimatedDurationMax,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeCompleted: includeCompleted === 'true'
+      })
+
+      const response = this.createResponse(
+        true,
+        result.items,
+        `Found ${result.total} items matching search criteria`,
+        undefined,
+        context.correlationId
+      )
+
+      response.pagination = {
+        page: result.page,
+        limit,
+        total: result.total,
+        totalPages: result.totalPages
+      }
+
+      res.json(response)
+    } catch (error) {
+      this.handleServerError(res, error as Error, 'advancedSearch', context.correlationId)
+    }
+  }
+
+  /**
+   * Filter items without search query
+   */
+  async filter(req: Request, res: Response): Promise<void> {
+    const context = this.getContext(req, 'read')
+
+    try {
+      // Validate query parameters
+      const queryValidation = this.validateData(req.query, itemSchemas.filterQuery, 'query')
+      if (!queryValidation.success) {
+        this.handleValidationError(res, queryValidation.errors, context.correlationId)
+        return
+      }
+
+      const {
+        listId,
+        status,
+        priority,
+        assignedTo,
+        tags,
+        dueDateFrom,
+        dueDateTo,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        hasDescription,
+        hasDueDate,
+        hasAssignee,
+        overdue,
+        dueSoon,
+        estimatedDurationMin,
+        estimatedDurationMax,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeCompleted
+      } = queryValidation.data
+
+      const result = await itemsService.filter({
+        listId,
+        status,
+        priority,
+        assignedTo,
+        tags,
+        dueDateFrom,
+        dueDateTo,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        hasDescription: hasDescription === 'true' ? true : hasDescription === 'false' ? false : undefined,
+        hasDueDate: hasDueDate === 'true' ? true : hasDueDate === 'false' ? false : undefined,
+        hasAssignee: hasAssignee === 'true' ? true : hasAssignee === 'false' ? false : undefined,
+        overdue: overdue === 'true',
+        dueSoon,
+        estimatedDurationMin,
+        estimatedDurationMax,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeCompleted: includeCompleted === 'true'
+      })
+
+      const response = this.createResponse(
+        true,
+        result.items,
+        `Found ${result.total} items matching filter criteria`,
+        undefined,
+        context.correlationId
+      )
+
+      response.pagination = {
+        page: result.page,
+        limit,
+        total: result.total,
+        totalPages: result.totalPages
+      }
+
+      res.json(response)
+    } catch (error) {
+      this.handleServerError(res, error as Error, 'filter', context.correlationId)
     }
   }
 

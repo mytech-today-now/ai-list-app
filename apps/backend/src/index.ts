@@ -73,6 +73,7 @@ import itemsRouter from './routes/items'
 import agentsRouter from './routes/agents'
 import sessionsRouter from './routes/sessions'
 import bulkRouter from './routes/bulk'
+import searchRouter from './routes/search'
 
 // Enhanced middleware imports
 import { errorHandler, notFoundHandler } from './middleware/errorHandler'
@@ -246,6 +247,7 @@ app.use('/api/items', itemsRouter)
 app.use('/api/agents', agentsRouter)
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/bulk', bulkRouter)
+app.use('/api/search', searchRouter)
 
 // MCP command endpoint
 app.post('/api/mcp/command', (req, res) => {

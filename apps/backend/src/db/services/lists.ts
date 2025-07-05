@@ -169,7 +169,7 @@ export class ListsService extends BaseService<typeof listsTable, List, NewList> 
   async search(query: string): Promise<List[]> {
     const db = await this.getDb()
     const searchTerm = `%${query.toLowerCase()}%`
-    
+
     return await db
       .select()
       .from(listsTable)
@@ -181,6 +181,449 @@ export class ListsService extends BaseService<typeof listsTable, List, NewList> 
         )
       ))
       .orderBy(asc(listsTable.title))
+  }
+
+  /**
+   * Advanced search with comprehensive filtering and pagination
+   */
+  async advancedSearch(options: {
+    query: string
+    fields?: string[]
+    status?: string[]
+    priority?: string[]
+    parentListId?: string
+    hasParent?: boolean
+    hasChildren?: boolean
+    hasItems?: boolean
+    itemCountMin?: number
+    itemCountMax?: number
+    completionRateMin?: number
+    completionRateMax?: number
+    createdFrom?: Date
+    createdTo?: Date
+    updatedFrom?: Date
+    updatedTo?: Date
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    includeArchived?: boolean
+  }): Promise<{ lists: (List & { itemCount: number; completedCount: number; completionRate: number })[], total: number, page: number, totalPages: number }> {
+    const db = await this.getDb()
+    const {
+      query,
+      fields = ['title', 'description'],
+      status,
+      priority,
+      parentListId,
+      hasParent,
+      hasChildren,
+      hasItems,
+      itemCountMin,
+      itemCountMax,
+      completionRateMin,
+      completionRateMax,
+      createdFrom,
+      createdTo,
+      updatedFrom,
+      updatedTo,
+      page = 1,
+      limit = 20,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
+      includeArchived = false
+    } = options
+
+    const searchTerm = `%${query.toLowerCase()}%`
+    const offset = (page - 1) * limit
+
+    // Build search conditions
+    const searchConditions = []
+    if (fields.includes('title')) {
+      searchConditions.push(sql`LOWER(${listsTable.title}) LIKE ${searchTerm}`)
+    }
+    if (fields.includes('description')) {
+      searchConditions.push(sql`LOWER(${listsTable.description}) LIKE ${searchTerm}`)
+    }
+
+    // Build filter conditions
+    const filterConditions = []
+
+    if (status && status.length > 0) {
+      filterConditions.push(inArray(listsTable.status, status))
+    } else if (!includeArchived) {
+      filterConditions.push(sql`${listsTable.status} != 'archived' AND ${listsTable.status} != 'deleted'`)
+    }
+
+    if (priority && priority.length > 0) {
+      filterConditions.push(inArray(listsTable.priority, priority))
+    }
+
+    if (parentListId !== undefined) {
+      if (parentListId === null) {
+        filterConditions.push(isNull(listsTable.parentListId))
+      } else {
+        filterConditions.push(eq(listsTable.parentListId, parentListId))
+      }
+    }
+
+    if (hasParent !== undefined) {
+      if (hasParent) {
+        filterConditions.push(sql`${listsTable.parentListId} IS NOT NULL`)
+      } else {
+        filterConditions.push(isNull(listsTable.parentListId))
+      }
+    }
+
+    // Date range filters
+    if (createdFrom) {
+      filterConditions.push(sql`${listsTable.createdAt} >= ${createdFrom}`)
+    }
+    if (createdTo) {
+      filterConditions.push(sql`${listsTable.createdAt} <= ${createdTo}`)
+    }
+    if (updatedFrom) {
+      filterConditions.push(sql`${listsTable.updatedAt} >= ${updatedFrom}`)
+    }
+    if (updatedTo) {
+      filterConditions.push(sql`${listsTable.updatedAt} <= ${updatedTo}`)
+    }
+
+    // Build the main query with item counts and completion rates
+    const baseQuery = db
+      .select({
+        ...listsTable,
+        itemCount: sql<number>`COALESCE(COUNT(${itemsTable.id}), 0)`,
+        completedCount: sql<number>`COALESCE(COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END), 0)`,
+        completionRate: sql<number>`CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE ROUND((COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id}), 2)
+        END`
+      })
+      .from(listsTable)
+      .leftJoin(itemsTable, eq(listsTable.id, itemsTable.listId))
+      .where(and(
+        or(...searchConditions),
+        ...filterConditions
+      ))
+      .groupBy(listsTable.id)
+
+    // Apply additional filters that require aggregated data
+    const havingConditions = []
+
+    if (hasItems !== undefined) {
+      if (hasItems) {
+        havingConditions.push(sql`COUNT(${itemsTable.id}) > 0`)
+      } else {
+        havingConditions.push(sql`COUNT(${itemsTable.id}) = 0`)
+      }
+    }
+
+    if (itemCountMin !== undefined) {
+      havingConditions.push(sql`COUNT(${itemsTable.id}) >= ${itemCountMin}`)
+    }
+    if (itemCountMax !== undefined) {
+      havingConditions.push(sql`COUNT(${itemsTable.id}) <= ${itemCountMax}`)
+    }
+
+    if (completionRateMin !== undefined) {
+      havingConditions.push(sql`
+        CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE (COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id})
+        END >= ${completionRateMin}
+      `)
+    }
+    if (completionRateMax !== undefined) {
+      havingConditions.push(sql`
+        CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE (COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id})
+        END <= ${completionRateMax}
+      `)
+    }
+
+    if (havingConditions.length > 0) {
+      baseQuery.having(and(...havingConditions))
+    }
+
+    // Build sort condition
+    let sortColumn
+    switch (sortBy) {
+      case 'itemCount':
+        sortColumn = sql`COUNT(${itemsTable.id})`
+        break
+      case 'completionRate':
+        sortColumn = sql`CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE (COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id})
+        END`
+        break
+      default:
+        sortColumn = (listsTable as any)[sortBy] || listsTable.updatedAt
+    }
+
+    const sortDirection = sortOrder === 'asc' ? asc : desc
+
+    // Execute query for lists
+    const lists = await baseQuery
+      .orderBy(sortDirection(sortColumn))
+      .limit(limit)
+      .offset(offset)
+
+    // Execute count query (simplified without aggregations for performance)
+    const countQuery = db
+      .select({ count: sql<number>`COUNT(DISTINCT ${listsTable.id})` })
+      .from(listsTable)
+      .leftJoin(itemsTable, eq(listsTable.id, itemsTable.listId))
+      .where(and(
+        or(...searchConditions),
+        ...filterConditions
+      ))
+
+    let total: number
+    if (havingConditions.length > 0) {
+      // For count with having clauses, we need to use a subquery
+      const subquery = db
+        .select({ id: listsTable.id })
+        .from(listsTable)
+        .leftJoin(itemsTable, eq(listsTable.id, itemsTable.listId))
+        .where(and(
+          or(...searchConditions),
+          ...filterConditions
+        ))
+        .groupBy(listsTable.id)
+        .having(and(...havingConditions))
+        .as('filtered_lists')
+
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(subquery)
+
+      total = countResult[0]?.count || 0
+    } else {
+      const countResult = await countQuery
+      total = countResult[0]?.count || 0
+    }
+
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      lists,
+      total,
+      page,
+      totalPages
+    }
+  }
+
+  /**
+   * Filter lists without search query
+   */
+  async filter(options: {
+    status?: string[]
+    priority?: string[]
+    parentListId?: string
+    hasParent?: boolean
+    hasChildren?: boolean
+    hasItems?: boolean
+    itemCountMin?: number
+    itemCountMax?: number
+    completionRateMin?: number
+    completionRateMax?: number
+    createdFrom?: Date
+    createdTo?: Date
+    updatedFrom?: Date
+    updatedTo?: Date
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    includeArchived?: boolean
+  }): Promise<{ lists: (List & { itemCount: number; completedCount: number; completionRate: number })[], total: number, page: number, totalPages: number }> {
+    const db = await this.getDb()
+    const {
+      status,
+      priority,
+      parentListId,
+      hasParent,
+      hasChildren,
+      hasItems,
+      itemCountMin,
+      itemCountMax,
+      completionRateMin,
+      completionRateMax,
+      createdFrom,
+      createdTo,
+      updatedFrom,
+      updatedTo,
+      page = 1,
+      limit = 20,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc',
+      includeArchived = false
+    } = options
+
+    const offset = (page - 1) * limit
+
+    // Build filter conditions
+    const filterConditions = []
+
+    if (status && status.length > 0) {
+      filterConditions.push(inArray(listsTable.status, status))
+    } else if (!includeArchived) {
+      filterConditions.push(sql`${listsTable.status} != 'archived' AND ${listsTable.status} != 'deleted'`)
+    }
+
+    if (priority && priority.length > 0) {
+      filterConditions.push(inArray(listsTable.priority, priority))
+    }
+
+    if (parentListId !== undefined) {
+      if (parentListId === null) {
+        filterConditions.push(isNull(listsTable.parentListId))
+      } else {
+        filterConditions.push(eq(listsTable.parentListId, parentListId))
+      }
+    }
+
+    if (hasParent !== undefined) {
+      if (hasParent) {
+        filterConditions.push(sql`${listsTable.parentListId} IS NOT NULL`)
+      } else {
+        filterConditions.push(isNull(listsTable.parentListId))
+      }
+    }
+
+    // Date range filters
+    if (createdFrom) {
+      filterConditions.push(sql`${listsTable.createdAt} >= ${createdFrom}`)
+    }
+    if (createdTo) {
+      filterConditions.push(sql`${listsTable.createdAt} <= ${createdTo}`)
+    }
+    if (updatedFrom) {
+      filterConditions.push(sql`${listsTable.updatedAt} >= ${updatedFrom}`)
+    }
+    if (updatedTo) {
+      filterConditions.push(sql`${listsTable.updatedAt} <= ${updatedTo}`)
+    }
+
+    // Build the main query with item counts and completion rates
+    const baseQuery = db
+      .select({
+        ...listsTable,
+        itemCount: sql<number>`COALESCE(COUNT(${itemsTable.id}), 0)`,
+        completedCount: sql<number>`COALESCE(COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END), 0)`,
+        completionRate: sql<number>`CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE ROUND((COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id}), 2)
+        END`
+      })
+      .from(listsTable)
+      .leftJoin(itemsTable, eq(listsTable.id, itemsTable.listId))
+      .where(filterConditions.length > 0 ? and(...filterConditions) : undefined)
+      .groupBy(listsTable.id)
+
+    // Apply additional filters that require aggregated data
+    const havingConditions = []
+
+    if (hasItems !== undefined) {
+      if (hasItems) {
+        havingConditions.push(sql`COUNT(${itemsTable.id}) > 0`)
+      } else {
+        havingConditions.push(sql`COUNT(${itemsTable.id}) = 0`)
+      }
+    }
+
+    if (itemCountMin !== undefined) {
+      havingConditions.push(sql`COUNT(${itemsTable.id}) >= ${itemCountMin}`)
+    }
+    if (itemCountMax !== undefined) {
+      havingConditions.push(sql`COUNT(${itemsTable.id}) <= ${itemCountMax}`)
+    }
+
+    if (completionRateMin !== undefined) {
+      havingConditions.push(sql`
+        CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE (COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id})
+        END >= ${completionRateMin}
+      `)
+    }
+    if (completionRateMax !== undefined) {
+      havingConditions.push(sql`
+        CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE (COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id})
+        END <= ${completionRateMax}
+      `)
+    }
+
+    if (havingConditions.length > 0) {
+      baseQuery.having(and(...havingConditions))
+    }
+
+    // Build sort condition
+    let sortColumn
+    switch (sortBy) {
+      case 'itemCount':
+        sortColumn = sql`COUNT(${itemsTable.id})`
+        break
+      case 'completionRate':
+        sortColumn = sql`CASE
+          WHEN COUNT(${itemsTable.id}) = 0 THEN 0
+          ELSE (COUNT(CASE WHEN ${itemsTable.status} = 'completed' THEN 1 END) * 100.0) / COUNT(${itemsTable.id})
+        END`
+        break
+      default:
+        sortColumn = (listsTable as any)[sortBy] || listsTable.updatedAt
+    }
+
+    const sortDirection = sortOrder === 'asc' ? asc : desc
+
+    // Execute query for lists
+    const lists = await baseQuery
+      .orderBy(sortDirection(sortColumn))
+      .limit(limit)
+      .offset(offset)
+
+    // Execute count query
+    const countQuery = db
+      .select({ count: sql<number>`COUNT(DISTINCT ${listsTable.id})` })
+      .from(listsTable)
+      .leftJoin(itemsTable, eq(listsTable.id, itemsTable.listId))
+      .where(filterConditions.length > 0 ? and(...filterConditions) : undefined)
+
+    let total: number
+    if (havingConditions.length > 0) {
+      // For count with having clauses, we need to use a subquery
+      const subquery = db
+        .select({ id: listsTable.id })
+        .from(listsTable)
+        .leftJoin(itemsTable, eq(listsTable.id, itemsTable.listId))
+        .where(filterConditions.length > 0 ? and(...filterConditions) : undefined)
+        .groupBy(listsTable.id)
+        .having(and(...havingConditions))
+        .as('filtered_lists')
+
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(subquery)
+
+      total = countResult[0]?.count || 0
+    } else {
+      const countResult = await countQuery
+      total = countResult[0]?.count || 0
+    }
+
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      lists,
+      total,
+      page,
+      totalPages
+    }
   }
 
   /**

@@ -51,6 +51,53 @@ export const listSchemas = {
     page: z.coerce.number().min(1).optional(),
     limit: z.coerce.number().min(1).max(100).optional()
   }),
+
+  // Enhanced search and filtering schemas for lists
+  advancedSearchQuery: z.object({
+    q: z.string().min(1, 'Search query is required'),
+    fields: z.array(z.enum(['title', 'description'])).optional().default(['title', 'description']),
+    status: z.array(z.enum(['active', 'completed', 'archived', 'deleted'])).optional(),
+    priority: z.array(prioritySchema).optional(),
+    parentListId: uuidSchema.optional(),
+    hasParent: z.enum(['true', 'false']).optional(),
+    hasChildren: z.enum(['true', 'false']).optional(),
+    hasItems: z.enum(['true', 'false']).optional(),
+    itemCountMin: z.coerce.number().min(0).optional(),
+    itemCountMax: z.coerce.number().min(0).optional(),
+    completionRateMin: z.coerce.number().min(0).max(100).optional(),
+    completionRateMax: z.coerce.number().min(0).max(100).optional(),
+    createdFrom: z.coerce.date().optional(),
+    createdTo: z.coerce.date().optional(),
+    updatedFrom: z.coerce.date().optional(),
+    updatedTo: z.coerce.date().optional(),
+    page: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).max(100).optional().default(20),
+    sortBy: z.enum(['title', 'priority', 'status', 'createdAt', 'updatedAt', 'position', 'itemCount', 'completionRate']).optional().default('updatedAt'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+    includeArchived: z.enum(['true', 'false']).optional().default('false')
+  }),
+
+  filterQuery: z.object({
+    status: z.array(z.enum(['active', 'completed', 'archived', 'deleted'])).optional(),
+    priority: z.array(prioritySchema).optional(),
+    parentListId: uuidSchema.optional(),
+    hasParent: z.enum(['true', 'false']).optional(),
+    hasChildren: z.enum(['true', 'false']).optional(),
+    hasItems: z.enum(['true', 'false']).optional(),
+    itemCountMin: z.coerce.number().min(0).optional(),
+    itemCountMax: z.coerce.number().min(0).optional(),
+    completionRateMin: z.coerce.number().min(0).max(100).optional(),
+    completionRateMax: z.coerce.number().min(0).max(100).optional(),
+    createdFrom: z.coerce.date().optional(),
+    createdTo: z.coerce.date().optional(),
+    updatedFrom: z.coerce.date().optional(),
+    updatedTo: z.coerce.date().optional(),
+    page: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).max(100).optional().default(20),
+    sortBy: z.enum(['title', 'priority', 'status', 'createdAt', 'updatedAt', 'position', 'itemCount', 'completionRate']).optional().default('updatedAt'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+    includeArchived: z.enum(['true', 'false']).optional().default('false')
+  }),
   
   params: z.object({
     id: uuidSchema
@@ -107,6 +154,61 @@ export const itemSchemas = {
     listId: uuidSchema.optional(),
     status: z.enum(['pending', 'in_progress', 'completed', 'blocked']).optional(),
     limit: z.coerce.number().min(1).max(100).optional().default(50)
+  }),
+
+  // Enhanced search and filtering schemas
+  advancedSearchQuery: z.object({
+    q: z.string().min(1, 'Search query is required'),
+    fields: z.array(z.enum(['title', 'description', 'tags'])).optional().default(['title', 'description']),
+    listId: uuidSchema.optional(),
+    status: z.array(z.enum(['pending', 'in_progress', 'completed', 'blocked'])).optional(),
+    priority: z.array(prioritySchema).optional(),
+    assignedTo: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+    dueDateFrom: z.coerce.date().optional(),
+    dueDateTo: z.coerce.date().optional(),
+    createdFrom: z.coerce.date().optional(),
+    createdTo: z.coerce.date().optional(),
+    updatedFrom: z.coerce.date().optional(),
+    updatedTo: z.coerce.date().optional(),
+    hasDescription: z.enum(['true', 'false']).optional(),
+    hasDueDate: z.enum(['true', 'false']).optional(),
+    hasAssignee: z.enum(['true', 'false']).optional(),
+    overdue: z.enum(['true', 'false']).optional(),
+    dueSoon: z.coerce.number().min(1).max(168).optional(), // hours (max 1 week)
+    estimatedDurationMin: z.coerce.number().min(0).optional(),
+    estimatedDurationMax: z.coerce.number().min(0).optional(),
+    page: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).max(100).optional().default(20),
+    sortBy: z.enum(['title', 'priority', 'status', 'dueDate', 'createdAt', 'updatedAt', 'position']).optional().default('updatedAt'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+    includeCompleted: z.enum(['true', 'false']).optional().default('true')
+  }),
+
+  filterQuery: z.object({
+    listId: uuidSchema.optional(),
+    status: z.array(z.enum(['pending', 'in_progress', 'completed', 'blocked'])).optional(),
+    priority: z.array(prioritySchema).optional(),
+    assignedTo: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+    dueDateFrom: z.coerce.date().optional(),
+    dueDateTo: z.coerce.date().optional(),
+    createdFrom: z.coerce.date().optional(),
+    createdTo: z.coerce.date().optional(),
+    updatedFrom: z.coerce.date().optional(),
+    updatedTo: z.coerce.date().optional(),
+    hasDescription: z.enum(['true', 'false']).optional(),
+    hasDueDate: z.enum(['true', 'false']).optional(),
+    hasAssignee: z.enum(['true', 'false']).optional(),
+    overdue: z.enum(['true', 'false']).optional(),
+    dueSoon: z.coerce.number().min(1).max(168).optional(),
+    estimatedDurationMin: z.coerce.number().min(0).optional(),
+    estimatedDurationMax: z.coerce.number().min(0).optional(),
+    page: z.coerce.number().min(1).optional().default(1),
+    limit: z.coerce.number().min(1).max(100).optional().default(20),
+    sortBy: z.enum(['title', 'priority', 'status', 'dueDate', 'createdAt', 'updatedAt', 'position']).optional().default('updatedAt'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+    includeCompleted: z.enum(['true', 'false']).optional().default('true')
   }),
 
   statsQuery: z.object({
@@ -243,13 +345,38 @@ export const actionSchemas = {
   })
 }
 
+// Global search schema
+export const globalSearchSchema = z.object({
+  q: z.string().min(1, 'Search query is required'),
+  types: z.array(z.enum(['lists', 'items', 'agents'])).optional().default(['lists', 'items']),
+  fields: z.array(z.enum(['title', 'description', 'name', 'tags'])).optional().default(['title', 'description', 'name']),
+  status: z.array(z.string()).optional(),
+  priority: z.array(prioritySchema).optional(),
+  page: z.coerce.number().min(1).optional().default(1),
+  limit: z.coerce.number().min(1).max(100).optional().default(20),
+  sortBy: z.enum(['relevance', 'createdAt', 'updatedAt', 'title', 'name']).optional().default('relevance'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  includeArchived: z.enum(['true', 'false']).optional().default('false')
+})
+
+// Enhanced pagination schema
+export const paginationSchema = z.object({
+  page: z.coerce.number().min(1).optional().default(1),
+  limit: z.coerce.number().min(1).max(100).optional().default(20),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
+  offset: z.coerce.number().min(0).optional()
+})
+
 // Export all schemas
 export const validationSchemas = {
   lists: listSchemas,
   items: itemSchemas,
   agents: agentSchemas,
   sessions: sessionSchemas,
-  actions: actionSchemas
+  actions: actionSchemas,
+  global: { search: globalSearchSchema },
+  common: { pagination: paginationSchema }
 }
 
 // Bulk operation validation schemas

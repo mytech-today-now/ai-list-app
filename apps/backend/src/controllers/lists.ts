@@ -394,7 +394,7 @@ export class ListsController extends BaseCRUDController<List, ListCreateSchema, 
    */
   async getStats(req: Request, res: Response): Promise<void> {
     const context = this.getContext(req, 'read')
-    
+
     try {
       // Validate parameters
       const paramValidation = this.validateData(req.params, this.schemas.params!, 'parameter')
@@ -420,6 +420,168 @@ export class ListsController extends BaseCRUDController<List, ListCreateSchema, 
       ))
     } catch (error) {
       this.handleServerError(res, error as Error, 'getStats', context.correlationId)
+    }
+  }
+
+  /**
+   * Advanced search lists with comprehensive filtering
+   */
+  async advancedSearch(req: Request, res: Response): Promise<void> {
+    const context = this.getContext(req, 'read')
+
+    try {
+      // Validate query parameters
+      const queryValidation = this.validateData(req.query, listSchemas.advancedSearchQuery, 'query')
+      if (!queryValidation.success) {
+        this.handleValidationError(res, queryValidation.errors, context.correlationId)
+        return
+      }
+
+      const {
+        q,
+        fields,
+        status,
+        priority,
+        parentListId,
+        hasParent,
+        hasChildren,
+        hasItems,
+        itemCountMin,
+        itemCountMax,
+        completionRateMin,
+        completionRateMax,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeArchived
+      } = queryValidation.data
+
+      const result = await listsService.advancedSearch({
+        query: q,
+        fields,
+        status,
+        priority,
+        parentListId,
+        hasParent: hasParent === 'true' ? true : hasParent === 'false' ? false : undefined,
+        hasChildren: hasChildren === 'true' ? true : hasChildren === 'false' ? false : undefined,
+        hasItems: hasItems === 'true' ? true : hasItems === 'false' ? false : undefined,
+        itemCountMin,
+        itemCountMax,
+        completionRateMin,
+        completionRateMax,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeArchived: includeArchived === 'true'
+      })
+
+      const response = this.createResponse(
+        true,
+        result.lists,
+        `Found ${result.total} lists matching search criteria`,
+        undefined,
+        context.correlationId
+      )
+
+      response.pagination = {
+        page: result.page,
+        limit,
+        total: result.total,
+        totalPages: result.totalPages
+      }
+
+      res.json(response)
+    } catch (error) {
+      this.handleServerError(res, error as Error, 'advancedSearch', context.correlationId)
+    }
+  }
+
+  /**
+   * Filter lists without search query
+   */
+  async filter(req: Request, res: Response): Promise<void> {
+    const context = this.getContext(req, 'read')
+
+    try {
+      // Validate query parameters
+      const queryValidation = this.validateData(req.query, listSchemas.filterQuery, 'query')
+      if (!queryValidation.success) {
+        this.handleValidationError(res, queryValidation.errors, context.correlationId)
+        return
+      }
+
+      const {
+        status,
+        priority,
+        parentListId,
+        hasParent,
+        hasChildren,
+        hasItems,
+        itemCountMin,
+        itemCountMax,
+        completionRateMin,
+        completionRateMax,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeArchived
+      } = queryValidation.data
+
+      const result = await listsService.filter({
+        status,
+        priority,
+        parentListId,
+        hasParent: hasParent === 'true' ? true : hasParent === 'false' ? false : undefined,
+        hasChildren: hasChildren === 'true' ? true : hasChildren === 'false' ? false : undefined,
+        hasItems: hasItems === 'true' ? true : hasItems === 'false' ? false : undefined,
+        itemCountMin,
+        itemCountMax,
+        completionRateMin,
+        completionRateMax,
+        createdFrom,
+        createdTo,
+        updatedFrom,
+        updatedTo,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        includeArchived: includeArchived === 'true'
+      })
+
+      const response = this.createResponse(
+        true,
+        result.lists,
+        `Found ${result.total} lists matching filter criteria`,
+        undefined,
+        context.correlationId
+      )
+
+      response.pagination = {
+        page: result.page,
+        limit,
+        total: result.total,
+        totalPages: result.totalPages
+      }
+
+      res.json(response)
+    } catch (error) {
+      this.handleServerError(res, error as Error, 'filter', context.correlationId)
     }
   }
 }
